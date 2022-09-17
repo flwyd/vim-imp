@@ -95,4 +95,5 @@ imp:parent	imp.txt	/*imp:parent*
 imp:plugin[commands]	imp.txt	/*imp:plugin[commands]*
 imp:plugin[mappings]	imp.txt	/*imp:plugin[mappings]*
 imp:plugin[register]	imp.txt	/*imp:plugin[register]*
+imp:popupnotify	imp.txt	/*imp:popupnotify*
 imp:ripgrep	imp.txt	/*imp:ripgrep*

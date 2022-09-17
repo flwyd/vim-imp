@@ -187,3 +187,14 @@ call s:plugin.Flag('gitgrep', {'command': 'git', 'grep': 'grep', 'args': []})
 "     \ hggrep[args]=['--text', '--exclude=somedir']
 " <
 call s:plugin.Flag('hggrep', {'command': 'hg', 'grep': 'grep', 'args': []})
+
+""
+" Configuration for the popupnotify Report handler.  `time` is the time in
+" milliseconds  to display the notification.  `position` can be `topleft`,
+" `bottomright`, `centerleft`, `topcenter`, etc.
+"
+" Example configuration: >
+"   Glaive @plugin(name) popupnotify[time]=5000
+"     \ popupnotify[position]=bottomleft
+" <
+call s:plugin.Flag('popupnotify', {'time': 3000, 'position': 'topright'})

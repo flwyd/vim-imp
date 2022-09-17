@@ -300,6 +300,18 @@ Example configuration:
 <
 Default: {'command': 'hg', 'grep': 'grep', 'args': []} `
 
+                                                             *imp:popupnotify*
+Configuration for the popupnotify Report handler.  `time` is the time in
+milliseconds  to display the notification.  `position` can be `topleft`,
+`bottomright`, `centerleft`, `topcenter`, etc.
+
+Example configuration:
+>
+  Glaive imp popupnotify[time]=5000
+    \ popupnotify[position]=bottomleft
+<
+Default: {'time': 3000, 'position': 'topright'} `
+
                                                         *imp:plugin[commands]*
 Configures whether plugin/commands.vim should be loaded.
 Default: 1 `
