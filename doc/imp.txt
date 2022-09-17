@@ -1,0 +1,1098 @@
+*imp.txt*	Extensible handling of imports for numerous languages
+Trevor Stone <github@trevorstone.org>                              *Imp* *imp*
+
+==============================================================================
+CONTENTS                                                        *imp-contents*
+  1. Introduction..................................................|imp-intro|
+  2. Commands...................................................|imp-commands|
+  3. Mappings...................................................|imp-mappings|
+  4. Configuration................................................|imp-config|
+  5. Handlers...................................................|imp-handlers|
+      1. Asynchronous handlers............................|imp-handlers-async|
+      2. Available handlers................................|imp-handlers-list|
+      3. Registering handlers..........................|imp-handlers-register|
+  6. Dictionaries..................................................|imp-dicts|
+  7. Functions.................................................|imp-functions|
+  8. About.........................................................|imp-about|
+
+==============================================================================
+INTRODUCTION                                                       *imp-intro*
+
+Imp is an extensible plugin for handling import statements for a variety of
+programming languages.  It operates on a pipeline model where generic, custom,
+or language-specific handers implement individual steps in the process of
+adding an import for a symbol to a program.  The goal is for programmers to be
+able to add import statements as they write code with minimal disruption to
+flow.  For example, a Java programmer might write
+>
+  public List<Animal> findAnimals(Query q) {
+    checkNotNull(q);
+    ...
+  }
+<
+and want to add
+>
+  import static com.google.common.base.Preconditions.checkNotNull;
+  import com.example.Animal;
+  import com.example.Animal.Query;
+  import java.util.List;
+<
+without having to move to the top of the file, type all those statements, and
+move back to the method.  |:ImpSuggest| accomplishes this as
+>
+  :ImpSuggest List Animal Query checkNotNull
+<
+It will use registered handlers to find possible matches for those symbols and
+let the user pick the ones they mean, e.g. `com.example.Animal.Query` or
+`com.example.Vegetable.Query`?  Alternatively, an insert-mode mapping could
+call |:ImpFirst|, using a single control key to insert the most likely import
+statement for the symbol next to the cursor (you probably want
+`java.util.List` and not `java.awt.List`).
+
+Imp requires Vim version 8+ and depends on the Maktaba library, see
+https://github.com/google/vim-maktaba for installation instructions.
+
+==============================================================================
+COMMANDS                                                        *imp-commands*
+
+:ImpSuggest [symbol] [symbols...]                                *:ImpSuggest*
+  Suggest a possible import statements for each [symbol], present a picker
+  interface for any symbol with multiple suggestions, and add chosen import
+  statements to the current buffer.  Example, which might show a picker to
+  choose `import java.util.List;` or `import java.awt.List;`:
+>
+    :ImpSuggest Collection List Set
+<
+  [symbol] is the word at the cursor if omitted.
+
+:ImpFirst [symbol] [symbols...]                                    *:ImpFirst*
+  Suggest a single import statement for each [symbol] and add it to the
+  current buffer, bypassing the Pick step.  Example:
+>
+    :ImpFirst Collection List Set
+<
+  [symbol] is the word at the cursor if omitted.
+
+:ImpHandlers [matches...]                                       *:ImpHandlers*
+  Prints a list of registered handlers.  If one or more [matches...] is given,
+  only handlers registered for those filetypes or implementing those methods
+  will be shown.  NOTE: output format is subject to change.  Example:
+>
+    :ImpHandlers java Suggest
+<
+
+==============================================================================
+MAPPINGS                                                        *imp-mappings*
+
+Imp provides default normal-mode mappings that can be enabled with the
+plugin[mappings] flag, for example by |Glaive|:
+>
+  Glaive imp plugin[mappings]
+<
+which will use |<leader>|i as a prefix by default. Set plugin[mappings]=_ to
+use a different prefix.
+
+`\ii` suggests imports for the symbol under (or next to) the cursor. If you
+select one of the suggested imports, it will be inserted. See |:ImpSuggest|.
+
+`\if` queries suggested imports for the symbol under (or next to) the cursor.
+Picks the first suggestion and inserts it. See |:ImpFirst|.
+
+This plugin does not provide any insert-mode mappings, but consider adding one
+for a keystroke of your choice to add an import for the symbol you just typed,
+without disrupting editing flow:
+>
+  inoremap <C-X><C-X> <Cmd>ImpFirst<CR>
+  inoremap <F3> <C-\><C-O>:ImpSuggest<CR>
+<
+(The <Cmd> variant requies |map-cmd| support, added after Vim 8.2.)
+
+==============================================================================
+CONFIGURATION                                                     *imp-config*
+
+Imp finds and adds import statements through a multi-stage pipeline.  Each
+step of the process uses a handler interface.  The primary configuration for
+Imp is lists of preferred handlers, either for specific filetypes or the
+special `default` handlers when no per-filetype list has been configured.  The
+handler types are
+  * Suggest (find a list of potential import statements)
+  * Pick (present a list of suggestions and allow one or more choices)
+  * Insert (add choisen imports to the buffer)
+  * Report (inform the user which statements were imported)
+For more information about these handlers, see |imp-handlers|.  For a list of
+handlers of each type, see |imp-handlers-list| or run |:ImpHandlers|.
+
+This plugin uses |maktaba| flags for configuration. Install |Glaive|
+(https://github.com/google/glaive) and use the |:Glaive| command to configure
+them.
+
+                                                                 *imp:Suggest*
+Per-filetype dict with names of Suggest handlers (list of strings) to use when
+looking up a symbol.  Suggesters are tried in order until one returns a
+non-empty list of candidate import statements.  If there is no entry for a
+filetype, the `default` list is used.
+
+Example configuration:
+>
+  Glaive imp Suggest[default]=buffer,known,ripgrep,prompt
+    \ Suggest[intercal]=known,prompt
+<
+Default: {'default': ['buffer', 'known', 'prompt']} `
+
+                                                                    *imp:Pick*
+Per-filetype dict with name(s) of Pick handlers to select one of a suggested
+list of imports.  The Pick step is skipped when only one import is suggested.
+If there is no entry for the current filetype, the `default` list is used.
+Multiple pickers may be specified, but only the first which `IsAvailable()`
+will be used, so this is mostly useful if the first picker depends on a vim
+feature or external command.
+
+Example configuration:
+>
+  Glaive imp Pick[default]=fzf,window Pick[intercal]=selectlist
+<
+Default: {'default': ['inputlist']} `
+
+                                                                  *imp:Insert*
+Per-filetype dict with the names of Insert haandles to add the import
+statement to the current buffer.  The default `['lang', 'top']` first tries
+language-specific handlers (`lang`), falling back to putting the statement at
+the top of the file (`top`).
+
+Example configuration:
+>
+  Glaive imp Insert[default]=lang,above Insert[intercal]=top
+<
+Default: {'default': ['lang', 'top']} `
+
+                                                                  *imp:Report*
+Per-filetype dict with the name of Report handlers which inform the user of
+imports that were inserted.  All reporters in the list will be called,
+allowing multiple streams (e.g. print to screen and write to log).  The Report
+list can also be empty and imports will not be announced.
+
+Example configuration:
+>
+  Glaive imp Report[default]=popupnotify,echomsg Report[c]=
+<
+Default: {'default': ['echo']} `
+
+                                                                 *imp:Pattern*
+Per-filetype dict with the name of Pattern handlers which build a
+language-specific regular expression for a symbol. This handler is used by
+some generic handlers like `grep` and `ripgrep`; the default value of `lang`
+is usually sufficient for this setting.
+
+Example configuration:
+>
+  Glaive imp Pattern[default]=lang Pattern[c]=myincludepattern
+<
+Default: {'default': ['lang']} `
+
+                                                                *imp:Location*
+Per-filetype dict with the name of Location handlers to indicate which
+directory tree some Suggest handlers (like `grep`, `ripgrep`, `ag`, `ack`,
+`gitgrep`, and `hggrep`) will use to search for a matching import statement.
+
+Example configuration:
+>
+  Glaive imp Location[default]=packageroot,parent
+    \ Location[c]=findbasemakefile
+<
+Default: {'default': ['vcsroot', 'pwd']} `
+
+                                                                  *imp:parent*
+Configuration for the `parent` Location handler.  If `levels` is greater than
+zero, that many directories above the file's parent will be searched.  For
+example, editing `foo/bar/baz/qux.py` setting `parent[levels]=1` will search
+the hierarchy under `foo/bar` for suggest handlers like `grep`.
+Default: {'levels': 0} `
+
+                                                                  *imp:buffer*
+Configuration for the buffer Suggest handler, searching vim buffers of the
+same file type for an import statement. If the `load` setting is true,
+unloaded buffers will be loaded before searching.
+Default: {'load': 0} `
+
+                                                                    *imp:grep*
+Configuration for the grep Suggest handler, searching a directory hierarchy
+with `grep`. The `command` setting provides the executable path and `args` is
+a list of arguments prepended to the command line.  Note that any arg which
+changes the output format may produce invalid Suggest results.  Note that,
+unlike ripgrep, ag, and ack, by default grep does not exclude any directories
+like `vendor` or `node_modules`, and results may therefore be slow without
+adding such directories to the flag.  The grep handler does exclude hidden
+directories that start with a `.`, which includes many support directories for
+version control systems, e.g. the `.git` directory.
+
+Example configuration:
+>
+  Glaive imp grep[command]=/path/to/grep
+    \ grep[args]=['--exclude-dir=node_modules', '--mmap']
+<
+Default: {'command': 'grep', 'args': []} `
+
+                                                                 *imp:ripgrep*
+Configuration for the ripgrep Suggest handler, searching a directory hierarchy
+with `rg`. The `command` setting provides the executable path and `args` is a
+list of arguments prepended to the command line.  Note that any arg which
+changes the output format may produce invalid Suggest results.
+
+Example configuration:
+>
+  Glaive imp ripgrep[command]=/path/to/rg
+    \ ripgrep[args]=['--no-config', '--hidden']
+<
+Default: {'command': 'rg', 'args': []} `
+
+                                                                      *imp:ag*
+Configuration for the ag (The Silver Searcher) Suggest handler, searching a
+directory hierarchy with `ag`. The `command` setting provides the executable
+path and `args` is a list of arguments prepended to the command line.  Note
+that any arg which changes the output format may produce invalid Suggest
+results.
+
+Example configuration:
+>
+  Glaive imp ag[command]=/path/to/ag
+    \ ag[args]=['--depth=5', '--one-device']
+<
+Default: {'command': 'ag', 'args': []} `
+
+                                                                     *imp:ack*
+Configuration for the ack Suggest handler, searching a directory hierarchy
+with `ack`. The `command` setting provides the executable path and `args` is a
+list of arguments prepended to the commandline.  Note that any arg which
+changes the output format may produce invalid Suggest results.
+
+Example configuration:
+>
+  Glaive imp ack[command]=/path/to/ack-grep
+    \ ack[args]=['--follow', '--ignore-ack-defaults']
+<
+Default: {'command': 'ack', 'args': []} `
+
+                                                                 *imp:gitgrep*
+Configuration for the gitgrep Suggest handler, searching a git repository with
+`git grep`. The `command` setting provides the git executable path, the `grep`
+setting is the name of the subcommand (e.g. a `mygrep` alias), and `args` is a
+list of command line arguments to include.  Note that any arg which changes
+the output format may produce invalid Suggest results.
+
+Example configuration:
+>
+  Glaive imp gitgrep[command]=/path/to/git gitgrep[grep]=mygrep
+    \ gitgrep[args]=['--untracked', '--max-depth=7']
+<
+Default: {'command': 'git', 'grep': 'grep', 'args': []} `
+
+                                                                  *imp:hggrep*
+Configuration for the hggrep Suggest handler, searching a Mercurial repository
+with `hg grep`. The `command` setting provides the hg executable path, the
+`grep` setting is the name of the subcommand (e.g. a `mygrep` alias), and
+`args` is a list of command line arguments to include.  Note that any arg
+which changes the output format may produce invalid Suggest results.
+
+Example configuration:
+>
+  Glaive imp hggrep[command]=/path/to/hg hggrep[grep]=mygrep
+    \ hggrep[args]=['--text', '--exclude=somedir']
+<
+Default: {'command': 'hg', 'grep': 'grep', 'args': []} `
+
+                                                        *imp:plugin[commands]*
+Configures whether plugin/commands.vim should be loaded.
+Default: 1 `
+
+                                                        *imp:plugin[mappings]*
+Configures whether plugin/mappings.vim should be loaded.
+Default: 0 `
+
+                                                        *imp:plugin[register]*
+Configures whether plugin/register.vim should be loaded.
+Default: 1 `
+
+==============================================================================
+HANDLERS                                                        *imp-handlers*
+
+Most features of Imp are driven by handlers.  A handler is registered as an
+extension and provides one or more interface functions which handle a step of
+the import process.  See |imp-handlers-list| for the built-in handlers. To see
+a list of all registered handlers, run |:ImpHandlers|.  See
+|imp-handlers-register| for registering custom handlers.
+
+Imp calls handlers at four stages of the import process:
+>
+  Suggest -> Pick -> Insert -> Report
+<
+The first three are called in sequence for a single symbol; Report will be
+called at the end of a command which may add imports for several symbols.
+Normal handler functions take a |imp.Context| dict as the first parameter.
+Asynchronous handler functions take a Done callback as the first parameter and
+context as the second (see |imp-handlers-async|.  The remaining parameter(s)
+are specific to the handler interface.
+
+SUGGEST HANDLER
+                                                      *imp-handlers-suggest*
+The Suggest handler starts the import process.  Its signature is
+>
+  function Suggest({context}, {symbol})
+      (or for async handlers:)
+  function Suggest({Done}, {context}, {symbol})
+<
+and it returns a list of |imp.Import| dicts, or empty list if no imports could
+be suggested for the symbol. {symbol} is a string and {context} is a
+|imp.Context|.  There may be several registered Suggest handlers, and `prompt`
+is typically the last one, so returning empty from one handler will let others
+try.  Once a Suggest handler has returned a non-empty list, no more Suggest
+handlers will be tried.
+
+If the context has a `max` property and it's greater than zero, Suggest
+handlers should return at most that many options.  `max` is often `1`, and if
+Suggest returns a single import, the Pick step will be skipped.
+
+PICK HANDLER
+                                                         *imp-handlers-pick*
+The Pick handler takes a list of suggested imports and presents them to the
+user to decide which, if any, should be imported into the current file.  Its
+signature is
+>
+  function Pick({context}, {suggestions})
+      (or for async handlers:)
+  function Pick({Done}, {context}, {suggestions})
+<
+and it returns a list of |imp.Import| dicts, or an empty list if the user
+chose not to import any symbols.  {suggestions} is a list of |imp.Import| and
+{context} is a |imp.Context|.  The Pick handler will be bypassed if there are
+zero or one suggestions; in the latter case the single suggestion will be
+passed straight to Insert.
+
+Pick handlers are free to restrict the user to making a single choice or
+allowing multiple selections; in most cases the user is likely to pick one or
+zero options.  Pick handlers are also free to present the user with fewer
+choices than there are suggestions, e.g. if the suggestions won't all fit on
+the screen.
+
+INSERT HANDLER
+                                                       *imp-handlers-insert*
+The Insert handler takes the choices from Pick and inserts them into the
+current buffer.  Its signature is
+>
+  function Insert({context}, {choices})
+      (or for async handlers:)
+  function Insert({Done}, {context}, {choices})
+<
+and it returns 1 if it was able to handle the choices, 0 if not.  {choices} is
+a list of |imp.Import| and {context} is a |imp.Context|.  Insert may
+optionally not insert some choices, typically if that import statement is
+already present.  In such cases, Insert should return 1 so that other
+inserters are not tried; returning 0 is reserved for cases where the handler
+would be unable to do something useful even if it had a valid import.  While
+{choices} is a list (since Pick may return more than one choice), they should
+all represent the same symbol.
+
+Insert handlers should append inserted imports to the `context.imported` list,
+and add append skipped imports to the `context.already_imported` list.
+Handlers should not replace these lists, because the same context may be used
+in several calls to Insert with different symbols, with the combined results
+passed to the Report handler.
+
+REPORT HANDLER
+                                                       *imp-handlers-report*
+The Report handler takes lists of inserted and skipped imports and reports
+what was done.  Its signature is
+>
+  function Report({context}, {imported}, {already_imported})
+      (or for async handlers:)
+  function Report({Done}, {context}, {imported}, {already_imported})
+<
+and it returns 1 if any action was taken, 0 if not.  {imported} and
+{already_imported} are lists of |imp.Import| and {context} is a |imp.Context|.
+Unlike other handler types, all preferred reporters for the current filetype
+are called.  For example, one might show a message to the user while another
+writes information to a log file.
+
+PATTERN HANDLER
+                                                      *imp-handlers-pattern*
+The Pattern handler is not part of the standard |imp-handlers| chain. Instead,
+language-agnostic handlers which need a pattern to match import statements may
+call a language-specific Pattern handler. The signature is
+>
+  function Pattern({context}, {style}, {symbol})
+<
+and it returns a |imp.Pattern|, or an empty dict if the handler cannot produce
+a regex for {symbol}.  There is no async version of the Pattern handler.
+{style} is a string indicating the regular expression syntax, as described in
+|imp.Pattern|.  {symbol} is a string symbol which will be searched for and
+{context} is a |imp.Context|.
+
+LOCATION HANDLER
+                                                     *imp-handlers-location*
+The Location handler is a helper for some Suggest handlers, such as `grep`,
+`ripgrep`, `ag`, `ack, `gitgrep`, and `hggrep` which search files in a
+directory hierarchy for import statements.  The signature is
+>
+  function Location({context}))
+<
+and it returns a list of paths (strings) to search.  There is no async version
+of the Location handler.  If a Location handler returns an empty list, the
+Suggest handler should check the next preferred Location handler, falling back
+to a default location like the current directory.  A Location handler may
+return multiple locations, e.g. the paths to both `src` and `tests`
+directories, and the Suggest handler should search in all of them.
+
+==============================================================================
+ASYNCHRONOUS HANDLERS                                     *imp-handlers-async*
+
+While it is usually simplest to implement a handler as a simple function which
+returns a value, handlers may also produce results asynchronously.  For
+example, a Suggest handler which launches a slow command to search for options
+or a Pick handler which allows the user to interact with a popup window.
+
+Rather than returning a value, asynchronous handlers accept a callback
+function as the first argument.  This callback takes the context as the first
+parameter and the handler result as the second parameter.  For example, an
+asynchronous Pick handler might be
+>
+  function! myasync#Pick(Done, context, suggestions) abort
+    let l:closure = {'Done': a:Done, 'context': a:context}
+    function l:closure.Callback(choices)
+      call self.Done(self.context, a:choices)
+    endfunction
+    call s:doSomethingAsync(a:suggestions
+      \ maktaba#function#Create(l:closure.Callback, [], l:closure))
+  endfunction
+<
+and registered as
+>
+  {'name': 'myasync', 'description': '..', 'async': 1, 'Pick': 'myasync#Pick'}
+<
+It is vital that async handlers call the Done callback even if they produce no
+results, otherwise subsequent handlers won't get a chance to run and
+multi-symbol commands won't process further imports.
+
+==============================================================================
+AVAILABLE HANDLERS                                         *imp-handlers-list*
+
+The following handlers are distributed with Imp and can be set as preferred
+handlers.  The current preference lists can be shown with the |:Glaive|
+command: `:Glaive imp`
+
+SUGGEST HANDLERS
+  * `prompt` - Prompt for import statement with symbol prefilled (language
+    extensions typically override the prefilled statement)
+  * `buffer` - Search buffers of matching file type, multiline support TODO
+  * `grep` - Search directory hierarchy with `grep` command, may be slow, no
+    multiline support
+  * `ripgrep` - Search directory hierarchy with `rg` command
+    (https://github.com/BurntSushi/ripgrep)
+  * `ag` - Search directory hierarchy with `ag` command, AKA The Silver
+    Searcher (https://github.com/ggreer/the_silver_searcher)
+  * `ack` - Search directory hierarchy with `ack` command
+    (https://github.com/beyondgrep/ack3), no multiline support
+  * `gitgrep` - Search git repository or tree with `git grep` command, no
+    multiline support
+  * `hggrep` - Search Mercurial repository or tree with `hg grep` command
+  * `known` - Suggest imports from a pre-declared set, call
+    |imp#handler#known#Add()| to declare statements for a language
+
+PICK HANDLERS
+  * `inputlist` - Pick import by number with |inputlist()|
+  * `lucky` - Always pick the first suggested import
+  * `window` - Pick import with a split selector window
+  * `fzf` - Pick imports with |FZF| fuzzy finder
+    (https://github.com/junegunn/fzf)
+
+INSERT HANDLERS
+  * `lang` - Default implementation does nothing, overridden by
+    filetype-specific handlers to find an appropriate position
+  * `top` - Insert import statement at top of the buffer (after any shebang
+    line)
+  * `above` - Insert import statement above the cursor line
+
+REPORT HANDLERS
+  * `echo` - Report imports with |:echo|
+  * `echomsg` - Report imports with |:echomsg|
+  * `popupnotify` - Report with a short-lived |popup_notification()| at the
+    top of the window
+
+LOCATION HANDLERS
+  * `pwd` - Search under the current working directory for suggestions
+  * `parent` - Search under the parent of the active file for suggestions
+  * `vcsroot` - Search all files in the active file's version control system
+    direcotry hierarchy, e.g. a whole git repository
+  * `packageroot` - Find a package or build system configuration file in an
+    ancestor directory and search the hierarchy rooted there for suggestions
+
+LANGUAGE HANDLERS
+The following filetypes have language-specific handlers registered, often
+available with a handler name matching the filetype and/or overriding a
+default handler name. Most language implementations support the `Pattern`
+handler which returns a regex pattern matching many (but not all) possible
+import statements for a given symbol. `Pattern` handlers are used by other
+generic handlers to match a language's imports.
+
+`bzl` handler provides both of the below for Bazel BUILD and starkark files
+  * `prompt` - Suggest by showing `load("", "symbol_name")` in an |input()|
+    prompt with cursor inside the label quotes.
+  * `lang` - Merge added imports with others from the same source.
+
+`es6` handler provides both of the below for JavaScript and TypeScript
+  * `prompt` - Suggest by showing `import {SymbolName} from '';` in an
+    |input()| prompt with cursor inside the quotes.
+  * `lang` - Merge added imports with others from the same source.
+
+`java` handler provides both of the below
+  * `prompt` - Suggest by showing `import .SymbolName;` in an |input()| prompt
+    with the cursor before the dot.  Includes the `static` modifier if the
+    symbol looks like a constant or method name.
+  * `lang` - Insert import statements in alphabetic order, with `static`
+    imports grouped before type imports.
+
+`kotlin` handler provides both of the below
+  * `prompt` - Suggest by showing `import .SymbolName` in an |input()| prompt
+    with the cursor before the dot.
+  * `lang` - Insert import statements in alphabetic order.
+
+`python` handler provides both of the below
+  * `prompt` - Suggest by showing `from  import SymbolName` in an |input()|
+    prompt with the cursor between `from` and `import`, or a special case if
+    SymbolName contains a dot.
+  * `lang` - Merge relative imports from the same package, alphabetize others.
+
+The following languages support the `Pattern` handler:
+  * `bzl`
+  * `es6`
+  * `java`
+  * `kotlin`
+  * `python`
+
+==============================================================================
+REGISTERING HANDLERS                                   *imp-handlers-register*
+
+Handlers are registered in a |maktaba.ExtensionRegistry| as a dict with keys
+  * `name` (name of the handler, referenced in |imp-config| flags)
+  * `description` (short explanation, shown with |:ImpHandlers|)
+  * `filetypes` (optional string or list of |filetype|s it can handle)
+  * `async` (optional, 1 for asynchronous, 0 if it returns a value)
+and one or more interface implementations:
+  * `IsAvailable`
+  * `Suggest`
+  * `Pick`
+  * `Insert`
+  * `Report`
+  * `Pattern`
+Interface values can be any |maktaba| Callable; it's usually most convenient
+to specify a function name as a string.  The `IsAvailable` property may either
+be a Callable or a simple 0/1 boolean value.  If `IsAvailable` is a string or
+function, Imp will call it as `IsAvailable(context)`.
+
+Handlers may be registered with the same name as an existing handler.  This is
+commonly done to provide a filetype-specific version of a handler.  Language
+integrations are encouraged to provide a Suggest handler named `prompt` which
+uses |input()| to present a partially complete import statement with
+appopriate cursor positioning.  Language integrations should also provide an
+Insert handler named `lang` to pick the appropriate place in the buffer to
+insert the import statement.  For example, the `lang` handler for Java places
+imports after the package declaration and alphabetizes them, with static
+imports first.  Finally, language integrations should implement a Pattern
+handler to help grep-style Suggest handlers find and parse imports.
+
+An example handler which suggests imports using an external command named
+`mysearch` might be implemented as
+>
+  " myplugin/autoload/myhandler.vim
+  function! myhandler#IsAvailable(context) abort
+    return executable('mysearch')
+  endfunction
+  function! myhandler#Suggest(context, symbol) abort
+    let l:lines = s:runMysearch(a:context.filetype)
+    return map(l:lines, {_, line -> imp#NewImport(a:symbol, line)})
+  endfunction
+
+  " myplugin/plugin/register.vim
+  let l:registry = maktaba#extension#GetRegistry('imp')
+  call l:registry.AddExtension({
+    \ 'name': mysearch',
+    \ 'description': 'Suggest imports with mysearch',
+    \ 'async': 0,
+    \ 'filetypes': ['foo', 'bar'],
+    \ 'IsAvailable': 'myhandler#IsAvailable',
+    \ 'Suggest': 'myhandler#Suggest'})
+<
+If the `filetypes` property is empty or absent, the handler will be available
+for any 'filetype'.  If it is a string or list, the handler will only be tried
+for matchig languages (skipping even `IsAvailable` checks).
+
+==============================================================================
+DICTIONARIES                                                       *imp-dicts*
+
+                                                                 *imp.Context*
+A Context dict contains contextual parameters for the life of a command which
+would be burdensome to pass to handlers which might not use it. |imp-handlers|
+take a context dict as their first parameter and may use it to pass
+side-channel values between steps.  Standard Context fields and their default
+values are
+>
+  {
+    'filetype': &filetype,  " determines available handlers
+    'path': expand('%:p'),  " path to the file being edited
+    'max': 0,               " maximum number of suggestions, 0 for unlimited
+    'imported': [],         " list of Imports inserted during this command
+    'already_imported': [], " list of Imports which were already present
+  }
+<
+
+                                                                  *imp.Import*
+An Import dict represents a `symbol` and a `statetement` which could be used
+to import that symbol in some programming language.  It also has a `count`
+property which defaults to 1 and can be used for prioritizing imports which
+occur more frequently in existing code.  Additional properties could be set on
+an Import object to convey information to other handlers, but such properties
+are not guaranteed to be set.
+
+                                                                   *imp.Lexer*
+A basic lexer which can scan text to produce a series of tokens.  The default
+implementation's Read* methods use pattern atoms like \k and \s to detect
+keywords, whitespace, etc.  Vim's 'filetype' setting affects the behavior of
+these atoms, but language implementations might want to customize the token
+readers for language-specific needs.  Lexers are initialized with a set of
+named state functions which control the lexer's state machine and advancement
+through the text.  A Lexer is stateful and only valid for one string.  It has
+the following keys:
+  * `text` - The string to be lexed
+  * `position` - The current 0-based index in the string, measured in
+    characters with composing chars ignored, see |strchars()|. If `position
+    >=0` then lexing is done (see |Lexer.AtEnd()|).
+  * `tokens` - List of |imp.Token| produced by |Lexer.EmitToken()|
+  * `state` - Name of current lexer state (next method to call)
+In addition to calling |Lexer.EmitToken()|, state methods may store data as
+properties in the Lexer as long as they don't conflict with an existing name.
+
+Lexer.Lex()                                                      *Lexer.Lex()*
+  Repeatedly calls the state machine method associated with `state` (initially
+  `'Start'`), setting the new `state` to the return value of that method.
+  State methods are responsible for emitting tokens and advancing `position`.
+  Returns 1 if the lexing process completed successfully (state `'done'`) or 0
+  if a state returned `'error'`.
+
+Lexer.AtEnd()                                                  *Lexer.AtEnd()*
+  Returns 1 if the lexer has reached the end of the input text, 0 otherwise.
+
+Lexer.AdvanceBy({length})                                  *Lexer.AdvanceBy()*
+  Moves the lexer position ahead by {length} characters.
+
+Lexer.AdvanceTo({position})                                *Lexer.AdvanceTo()*
+  Sets the current lexer position to {position}.  The lexer position is
+  0-based and expressed in characters.
+
+Lexer.EmitToken({token})                                   *Lexer.EmitToken()*
+  Appends {token} (a |imp.Token|) to the `tokens` list of this lexer.
+
+Lexer.PeekChar()                                            *Lexer.PeekChar()*
+  Returns the next character in the input, without advancing position.
+  Returns empty string at the end of input.
+
+Lexer.PeekChars({length})                                  *Lexer.PeekChars()*
+  Returns the next {length} characters in the input, without advancing
+  position. Returns empty string at the end of input, or if position plus
+  length is longer than input.
+
+Lexer.ReadChar()                                            *Lexer.ReadChar()*
+  Returns the next character in the input, advancing position to the following
+  character.  Returns empty string at the end of input.
+
+Lexer.ReadCharAs({type})                                  *Lexer.ReadCharAs()*
+  Returns a token with type={type} and the next character in the input as
+  text, advancing position to the following character.  Returns empty dict at
+  the end of input.
+
+Lexer.ReadDelimitedAs({delim}, {escape}, {type})     *Lexer.ReadDelimitedAs()*
+  Attempts to read a series of characters delimited by matching {delim}
+  strings, such as a single- or double-quoted string.  Any character in
+  {escape} (e.g. `'\'`) will be treated as an escape character; if it's before
+  a delimiter then the latter will not end the string.  If escape is empty,
+  the closing delimiter cannot be escaped, e.g. single-quoted shell strings.
+  Returns a |imp.Token| with the matched content, delimiters included, and
+  type {type}, or an empty dict if the input does not start with delim.
+
+Lexer.ReadPatternAs({pattern}, {type})                 *Lexer.ReadPatternAs()*
+  If {pattern} matches at the current text position, returns a new |imp.Token|
+  with the matching text, {type}, and the character start and end positions of
+  the match, advancing the lexer position to the end of the match.  If
+  {pattern} does not match at the current position an empty dict is returned.
+
+Lexer.ReadIdentifier()                                *Lexer.ReadIdentifier()*
+  Attempts to read an identifier at the current position, returning a
+  |imp.Token| with `type = 'identifier'` if successful and an empty dict
+  otherwise.  By default, this calls `self.ReadPatternAs('\v^\k+',
+  'identifier')`  Language-specific lexers may set a different ReadIdentifier
+  function property.
+
+Lexer.ReadNewline()                                      *Lexer.ReadNewline()*
+  Attempts to read an one or more newline characters at the current position,
+  returning a |imp.Token| with `type = 'newline'` if successful and an empty
+  dict otherwise.  By default, this calls `self.ReadPatternAs('\v^[\r\n]+',
+  'newline')`  Language-specific lexers may set a different ReadNewline
+  function property.
+
+Lexer.ReadWhitespace()                                *Lexer.ReadWhitespace()*
+  Attempts to read an one or more non-newline whitespace characters at the
+  current position, returning a |imp.Token| with `type = 'whitespace'` if
+  successful and an empty dict otherwise.  By default, this calls
+  `self.ReadPatternAs('\v^\s+', 'whitespace')`  Language-specific lexers may
+  set a different ReadWhitespace function property.
+
+Lexer.ReadWhitespaceOrNewline()              *Lexer.ReadWhitespaceOrNewline()*
+  Attempts to read an one or more whitespace or newline characters at the
+  current position, returning a |imp.Token| with `type = 'whitespace'` if
+  successful and an empty dict otherwise.  By default, this calls
+  `self.ReadPatternAs('\v^\_s+', 'whitespace')`  (Note that this is the same
+  token type as |Lexer.ReadWhitespace()| but not the same as
+  |Lexer.ReadNewline()|.  Language-specific lexers may set a different
+  ReadWhitespaceOrNewline function property.
+
+                                                                 *imp.Pattern*
+A Pattern is a dict containing several fields to support use cases like
+searching for imports in a directory using `grep`.  A Pattern must have the
+following fields:
+  * `patterns` - list of 0 or more regular expressions which can match import
+    statements for the current filetype; false positives and negatives are
+    allowed; false positives can be filtered out with the help of `Parse`
+  * `fileglobs` - list of 0 or more glob patterns which match files to search
+    for import statements; if empty the search handler may infer files from
+    the current 'filetype' or search all files
+and may optionally have the following fields
+  * `style` - string name of regex syntax
+  * `Parse` - `function(context, symbol, line)` to parse a line of text
+    matching an import of `symbol`, returning a normalized |imp.Import| or an
+    empty dict if line is not a valid import for that symbol
+  * `multiline` - 1 if handlers using `patterns` should treat them as regular
+    expressions that can cross newline boundaries, if supported
+  * `ignorecase` - 1 if handlers using `patterns` should ignore case
+The `multiline` and `ignorecase` properties are assumed false if not present,
+`style` is assumed to be `posix` by default.  In the absence of `Parse`,
+|imp#NewImport()| can be used with the line as matched.
+
+Pattern-related functions take a `style` string parameter indicating which
+regex library or syntax will be used by the tool in question.  The following
+styles are recognized by imp functions, but handlers might understand more.
+  * `posix` - Extended Regular Expressions from POSIX.2, see `man re_format`
+  * `posix_basic` - Basic Regular Expressions from POSIX.2 for backward
+    compatibility, not recommended (use `grep -E` instead)
+  * `perl` - Regular expressions as implemented in Perl
+  * `pcre` - Perl Compatible Regular Expressions library in C, mostly but not
+    100% compatible with Perl
+  * `java` - Perl-style as implemented in `java.util.regex.Pattern`
+  * `js` - Perl-style ECMAScript RegExp syntax
+  * `dotnet` - Perl-style as implemented in .Net
+  * `ruby` - Mostly Perl-style as implemented in Ruby
+  * `python` - Regular expressions as implemented in Python's `re` package
+  * `rust` - Regular expressions in Rust, no lookaround or backrefs
+  * `re2` - Library with linear performance and no lookaround or backrefs;
+    default syntax for Go, available in C, Java, D, and WebAssembly
+
+If an unknown `style` is passed to a handler or function, extended POSIX
+syntax should be assumed as a baseline.  When building regex patterns, fancy
+features should be kept to a minimum since this scheme doesn't allow
+specifying library versions, and some programs which nominally use the same
+regex engine might have slightly different features.  Use
+|imp#pattern#Escape()| and |imp#pattern#SupportsPerlLookaround()| functions to
+build style-aware pattern strings.
+
+                                                                   *imp.Token*
+A token produced by a lexer with `type` and `token` properties, both string,
+and `start` and `end` properties, both numbers representing character indices
+(not bytes, see |strchars()|).  The token begins at input position `start` and
+ends just before position `end`, so the length should be generally `end` -
+`start`.  A token may have `start` = `end` if it represents a token which
+doesn't have a text component, e.g. EOF.
+
+==============================================================================
+FUNCTIONS                                                      *imp-functions*
+
+imp#NewContext([values])                                    *imp#NewContext()*
+  Creates a |imp.Context| object that can be passed to handlers.  The optional
+  [values] argument (a dict) will override defaults.
+
+imp#NewImport({symbol}, {statement}, [extra])                *imp#NewImport()*
+  Creates an |imp.Import| object with {symbol} and {statement} properties,
+  plus any properties from an optional [extra] dict.
+
+imp#ImportSymbol({DoneFunc}, {context}, {symbol})         *imp#ImportSymbol()*
+  Runs a single string {symbol} through the import process of suggest, pick,
+  and insert, using the command |imp.Context| {context}.  See |imp-handlers|
+  for details on these stages.  This process does not call Report handlers,
+  which may collect a bundle of imports from a single command; see
+  |ReportImported()| for that.  When the symbol has been imported, calls
+  {DoneFunc}, which can be any |maktaba| callable (a string or funcref).  If
+  {DoneFunc} is an empty string, no callback will be made.
+
+imp#ReportImported({context})                           *imp#ReportImported()*
+  Calls all registered Report handlers (|imp-handlers-report|) for the
+  accumulated `imported` and `already_imported` |imp.Import| objects.
+
+imp#dir#PreferredLocations({context})           *imp#dir#PreferredLocations()*
+  Returns a list of directories to search in an import operation involving
+  {context}.  This function returns the first non-empty result from a
+  preferred Location handler, or empty list if all preferred handlers return
+  empty.  See |imp-handlers-location|.
+
+imp#dir#AncestorMatching({predicate}, {path})     *imp#dir#AncestorMatching()*
+  Checks {path} and successive parent directories, returning the first
+  directory path for which {predicate} (a maktaba callable) returns true, or
+  empty string if predicate returns false for all ancestor directories.
+  {path} is not |expand()|ed or made absolute, so this function might return
+  empty for a relative path even if it could have found a matching parent of
+  that directory if given an absolute path.
+
+imp#dir#IsVcsRoot({path})                                *imp#dir#IsVcsRoot()*
+  Returns 1 if {path} is a directory and is the root of some version control
+  system repository, 0 otherwise.
+
+imp#dir#IsPackageRoot({path})                        *imp#dir#IsPackageRoot()*
+  Returns 1 if {path} is a directory and is the root of some packaging or
+  build system, 0 otherwise.
+
+imp#dir#IsBzrRoot({dir})                                 *imp#dir#IsBzrRoot()*
+  Returns 1 if {dir} is the root directory of a GNU Bazaar repository, 0
+  otherwise.
+
+imp#dir#IsCvsRoot({dir})                                 *imp#dir#IsCvsRoot()*
+  Returns 1 if {dir} is the root directory of a CVS repository, 0 otherwise.
+
+imp#dir#IsDarcsRoot({dir})                             *imp#dir#IsDarcsRoot()*
+  Returns 1 if {dir} is the root directory of a Darcs repository, 0 otherwise.
+
+imp#dir#IsGitRoot({dir})                                 *imp#dir#IsGitRoot()*
+  Returns 1 if {dir} is the root directory of a Git repository, 0 otherwise.
+
+imp#dir#IsHgRoot({dir})                                   *imp#dir#IsHgRoot()*
+  Returns 1 if {dir} is the root directory of a Mercurial repository, 0
+  otherwise.
+
+imp#dir#IsSvnRoot({dir})                                 *imp#dir#IsSvnRoot()*
+  Returns 1 if {dir} is the root directory of a Subversion repository, 0
+  otherwise.
+
+imp#dir#IsAutoconfRoot({dir})                       *imp#dir#IsAutoconfRoot()*
+  Returns 1 if {dir} is the root directory of a package using GNU autoconf, 0
+  otherwise.
+
+imp#dir#IsBazelRoot({dir})                             *imp#dir#IsBazelRoot()*
+  Returns 1 if {dir} is the root directory of a package using Bazel build, 0
+  otherwise.
+
+imp#dir#IsComposerRoot({dir})                       *imp#dir#IsComposerRoot()*
+  Returns 1 if {dir} is the root directory of a package using Composer (PHP
+  dependency manager), 0 otherwise.
+
+imp#dir#IsMavenRoot({dir})                             *imp#dir#IsMavenRoot()*
+  Returns 1 if {dir} is the root directory of a package using Apache Maven, 0
+  otherwise.
+
+imp#dir#IsNpmRoot({dir})                                 *imp#dir#IsNpmRoot()*
+  Returns 1 if {dir} is the root directory of a package using npm (Node
+  Package Manager), 0 otherwise.
+
+imp#dir#IsPythonRoot({dir})                           *imp#dir#IsPythonRoot()*
+  Returns 1 if {dir} is the root directory of a package using Python
+  packaging, 0 otherwise.
+
+imp#dir#IsRubyRoot({dir})                               *imp#dir#IsRubyRoot()*
+  Returns 1 if {dir} is the root directory of a package using Ruby Gems, 0
+  otherwise.
+
+imp#handler#known#Add({lang}, {statements})          *imp#handler#known#Add()*
+  Adds {statements} to the list of imports for filetype {lang} in the `known`
+  Suggest handler.  {statements} can be a single |imp.Import|, a list of
+  Imports, a single string, a list of strings, or a dict with symbols as keys
+  and either Imports or strings as values.  Strings will be converted to
+  |imp.Import| values using a Pattern handler (|imp-handlers-pattern|) which
+  has a Parse method; if no such Pattern handler is registered for {lang} then
+  the string statements will be ignored with a warning.
+
+imp#lex#NewToken({type}, {text}, {start}, {end})          *imp#lex#NewToken()*
+  Creates a |imp.Token| object of {type} with value {text} and indices {start}
+  to {end}.
+
+imp#lex#NewLexer({states}, {text})                        *imp#lex#NewLexer()*
+  Creates a |imp.Lexer| with state machine methods and other properties copied
+  from {states} and it will lex the string {text} when |Lexer.Lex()| is
+  called.  {states} must have at least a `'Start'` state method, which is the
+  first state called by the lexer.  Each state method returns the name of the
+  next state, `'error'` if it encountered a portion of input that could not be
+  handled, or `'done'` if lexing of the text is complete.
+
+imp#pattern#FromPreferred({context}, {style}, {symbol})
+                                                 *imp#pattern#FromPreferred()*
+  Requests a pattern for {symbol} using regular expression syntax {style} from
+  Pattern handlers in preferred order.  Returns the first |imp.Pattern|
+  produced, or an empty dict if no preferred Pattern handler returned one.
+
+imp#pattern#ParseMatches({context}, {pattern}, {symbol}, {lines})
+                                                  *imp#pattern#ParseMatches()*
+  Returns a list of |imp.Import| structures based on {lines} (a list of
+  strings) matched by {pattern} (a |imp.Pattern|) searching for {symbol}.
+  Matching imports are grouped and the results sorted by count.  If pattern
+  has a `Parse` method, this function will delegate to Parse to create the
+  Import, otherwise the Import will use the full matched line.  Parse methods
+  will be called with arguments `(context, symbol, line)` and can return an
+  empty dict if the line cannot be parsed.  Pattern handlers are encouraged to
+  implement Parse to normalize lines found by grep and similar programs,
+  particularly if a single import statement can include multiple symbols.
+
+imp#pattern#Escape({style}, {text})                     *imp#pattern#Escape()*
+  Escapes {text} according to regular expression syntax {style}.  Uses literal
+  quoting features if available, such as Vim's very |nomagic| mode and `\Q \E`
+  pairs in some syntax styles derived from Perl.  If a style is unknown or
+  does not support literal quoting, this function backslash-escapes all
+  non-alphanumeric characters (i.e. anything other than 0-9, A-Z, a-z, and _).
+  If a regex engine treats `\x` as a metacharacter where `x` is not an ASCII
+  letter, number, or underscore, add support for that style to this function.
+
+  Care should be taken with the result of this function, even though it has
+  been escaped.  For example, the `vim` style prepends `\V` but does not
+  append `\v` or `\m` at the end, since it doesn't know what the previous
+  magic value was.  Similarly, the `vim` style doesn't set `\C,` so a previous
+  `\c` in the pattern will cause the escaped text to match without case
+  sensitivity.
+
+  Values for style:
+    * `vim` - enables "very nomagic" mode, see |/\V|
+    * `pcre`, `java`, `re2` - wraps text in \Q...\E quote metacharacters
+    * `posix_basic` - backslash-escapes only the metacharacters in POSIX basic
+      regular expressions; does not escape characters like ?, (, and )
+    * any other value - inserts a backslash before all non-alphanumerics
+
+imp#pattern#SupportsPerlLookaround({style})
+                                        *imp#pattern#SupportsPerlLookaround()*
+  Returns true if regex syntax {style} supports Perl-style lookaround
+  assertions like `(?!foo)` for "not followed by foo" or `(?<=bar)` for
+  "preceded by bar". Lookaround is supported in most Perl-influenced syntax
+  styles, but it can lead to pathological performance cases, so some engines
+  don't support it, including `posix`, `re2`, and `rust`.
+
+imp#pattern#GlobToRegex({glob})                    *imp#pattern#GlobToRegex()*
+  Converts a POSIX file {glob} to a POSIX regular expression.  NOTE: It is
+  possible that this function mishandles some unusual glob cases. It does not
+  handle some shell patterns like `{foo,bar}` disjunction.
+
+imp#util#AlwaysFalse()                                *imp#util#AlwaysFalse()*
+  Variadic function which always returns 0.
+
+imp#util#Find({list}, {expr})                                *imp#util#Find()*
+  Returns the first item in {list} where {expr} (a maktaba Callable which
+  accepts a single argument) returns a truthy value.  Returns |v:none| if no
+  item in the list matched.
+
+imp#util#Intersection({list1}, {list2})              *imp#util#Intersection()*
+  Returns a new list of items in {list1} which are also present in {list2}.
+  This uses an O(n^2) algorithm because dicts use string keys which would
+  conflate equality for some items.
+
+imp#util#ArgsList()                                      *imp#util#ArgsList()*
+  Returns a list of values by concatenating argument lists.  If any argument
+  is a string, it is presumed to be a user-set flag value for a list of
+  command line arguments, and split on non-escaped spaces.  Otherwise, the
+  argument must be a list. A single list is returned, but no extra flattening
+  is performed.
+
+imp#util#FindLines({pat}, [IgnoreComments], [StopIf])   *imp#util#FindLines()*
+  Returns a list of \[linenum, linetext\] in the current buffer mathching
+  {pat}. If {pat} is a string, it is treated as a pattern for |match()|,
+  otherwise it is treated as a maktaba callable predicate, passing each line
+  as a string to the function and adding it to the result if the function
+  returns a truthy value.  If [IgnoreComments] is a maktaba callable, it is
+  called with the line number of each line before {pat} is checked, and the
+  line is skipped before if it returns true.  As a convenience,
+  [IgnoreComments] can be 1 (default) to use |imp#util#IsCommentLine| as the
+  predicate and 0 to use |imp#util#AlwaysFalse|. If [StopIf] is non-empty, it
+  will be called with the line text for each line, before {pat} is checked.
+  If [StopIf] returns true, this and all further lines will be ignored.  This
+  allows only examining the top part of a file for imports.
+
+imp#util#IsCommentLine({linenum})                   *imp#util#IsCommentLine()*
+  Returns true if it is likely that line {linenum} of the current buffer is a
+  comment.  Implementation may change, but currently checks if the the first
+  non-blank character in the line has comment syntax.
+
+imp#util#IsSyntaxLine({synnames}, {linenum})         *imp#util#IsSyntaxLine()*
+  Returns true if the first non-blank character of line number {linenum} in
+  the current buffer matches one of the syntax names in list {synnames}.
+  Checks the first column if the line contains only whitespace.  Will
+  generally return false if the line has no characters.  {synnames} is the
+  first argument to aid |Partial| or |maktaba#function#WithArgs| applications.
+
+imp#util#CursorSymbol()                              *imp#util#CursorSymbol()*
+  Returns the symbol (as determined by |iskeyword|) currently under or next to
+  the cursor, like |cword| but also looking back one character.  Returns empty
+  string if the cursor is not near a symbol.
+
+==============================================================================
+ABOUT                                                              *imp-about*
+
+An imp is a European mythological creature which can perform many useful
+tasks, but sometimes gets into mischief.  Hopefully you find the Imp plugin
+useful, but be warned that it might hand you the wrong tool or rearrange your
+imports in a surprising way.
+
+This plugin was inspired by a shell script and a kludge of key mappings which
+attempted to bring IDE-style Java import management to Vim.  I was working in
+a large codebase stored on a remote filesystem, and recursive grep was slow,
+so I would periodically build a list of the import statements my team used
+most frequently, then search that cached list.  The script would fall back to
+Google Code Search if my list of prepared imports did not have a match for the
+symbol under my cursor.  I created Imp as a general purpose plugin to support
+more languages and a pluggable set of tools for suggesting, picking,
+inserting, and reporting import statements, with a goal of having as many
+pieces as possible work with code in any language.
+
+The following features would be useful additions to this plugin:
+  * Insert and Pattern support for more languages
+  * "Metalanguage" suport, e.g. combine Java, Kotlin, and Scala suggestions
+  * Flags to help Insert handlers respect coding styles, e.g. placement of
+    Java static and non-static Java imports, blank lines between imports of
+    different top-level package trees
+  * Convert an existing qualfied identifier into an import, for example turn
+    `int x = Math.max(a, b)` into `int x = max(a, b)` with a static import for
+    `java.lang.Math.max` added
+  * Maybe a -bang option on the commands which allows substring matches on
+    import symbols
+  * Function for |command-completion-custom| which proposes symbols in the
+    current buffer like CTRL-N/CTRL-P completion in insert mode
+  * :ImpOrganize command to sort and format existing imports in the buffer
+  * In visual mode, |:ImpSuggest| and |:ImpFirst| could identify all
+    unimported symbols in the range and import them
+  * Suggest imports from the language standard library or popular software
+    packages without depending on an existing corpus of user code
+  * Flags to exclude certain directories from searches that would otherwise be
+    covered by Location handler lists.  This is kinda what ripgrep, ag, and
+    ack already do, though, so maybe just use those instead of grep.
+  * Ability to build a cache of the most popular imports from a directory
+    hierarchy and a Suggest handler which consults that cache.  A Report
+    handler could increment counts in the cache.
+  * Mark unimported symbols with |signs| or syntax highlighting (might be best
+    left to a LSP plugin, though)
+  * More filtering options for |:ImpHandlers|
+  * Tests.  Lots more tests.  Tests were excluded from initial development
+    because Vroom needs client-server support which is unavailable on macOS. I
+    opted to use https://github.com/thinca/vim-themis for xUnit-style testing.
+    Testing so far is focused on real executables (rather than mock responses)
+    which has been successful at finding regular expression bugs and corner
+    cases, but comes at the cost of slow test times if all the programs are
+    installed and missed coverage if the executables aren't available in the
+    test environment.  Tests for utility functions and hermetic handlers
+    should be fairly straightforward, just needs time.
+
+>
+   _    ___              ____
+  | |  / (_)___ ___     /  _/___ ___  ____
+  | | / / / __ `__ \    / // __ `__ \/ __ \
+  | |/ / / / / / / /  _/ // / / / / / /_/ /
+  |___/_/_/ /_/ /_/  /___/_/ /_/ /_/ .___/
+                                  /_/
+<
+
+
+vim:tw=78:ts=8:ft=help:norl:

@@ -1,0 +1,71 @@
+" This file configures https://github.com/thinca/vim-themis and provides
+" additional support variables and functions available to tests for this
+" plugin.  To run tests from the root directory of this plugin, just run
+" path/to/vim-themis/bin/themis.  To run tests from elsewhere, give the path
+" to this plugin's test/ directory as an argument.
+" This .themisrc file will try to locate the dependencies for testing this
+" plugin, vim-maktaba and vim-glaive, in the environment variable
+" $TEST_PLUGIN_DIR or in a variety of common locations if that variable is
+" unset or empty.
+
+function s:findPlugin(name) abort
+  if empty($TEST_PLUGIN_DIR)
+    " Some config locations from :help vimrc
+    let l:vim = [$HOME . '/.vim', $HOME . '/vimfiles',
+          \ $HOME . '/config/settings/vim']
+    " See :help base-directories in neovim
+    let l:nvim = [$HOME . '/.config/nvim', $HOME . '/AppData/Local/nvim']
+    if !empty($XDG_CONFIG_HOME)
+      let l:nvim = [$XDG_CONFIG_HOME . '/nvim'] + l:nvim
+    endif
+    let l:p = []
+    " Most likely place to find plugins is as a sibling of this one, so look
+    " in .. first
+    for l:base in ['..'] + l:vim + l:nvim
+      " Vim 8 packages, vim-plug, pathogen/vundle, vim-addon-manager defaults
+      for l:sub in ['', 'pack/**2', 'plugged', 'bundle', 'vim-addons']
+        call add(l:p, l:base . '/' . l:sub)
+      endfor
+    endfor
+    let l:path = join(l:p, ',')
+  else
+    let l:path = $TEST_PLUGIN_DIR
+  endif
+  " Not all plugins have addon-info.json, but the ones we care about do
+  let l:plug = findfile(a:name . '/addon-info.json', l:path)
+  if empty(l:plug) && l:plug =~? '^vim-'
+    let l:plug = findfile(a:name . '/addon-info.json', l:path[4:])
+  endif
+  " remove trailing /addon-info.json
+  return empty(l:plug) ? '' : fnamemodify(l:plug, ':h')
+endfunction
+
+function! s:setupRtp() abort
+  let l:rtp = []
+  for l:plug in ['vim-maktaba', 'vim-glaive']
+    let l:found = s:findPlugin(l:plug)
+    if empty(l:found)
+      call themis#helper('deps').git('google/' . l:plug)
+    else
+      call add(l:rtp, l:found)
+    endif
+  endfor
+  call themis#option('runtimepath', l:rtp)
+endfunction
+
+call s:setupRtp()
+call themis#option('exclude', ['/fixtures/'])
+call themis#option('recursive', 1)
+filetype on
+" Make it hard to accidentally overwrite fixture files
+set readonly
+let g:imp_test_dir = expand('<sfile>:h')
+let g:imp_fixture_dir = g:imp_test_dir . '/fixtures'
+
+function! FixturePath(...) abort
+  return maktaba#path#Join([g:imp_fixture_dir] + a:000)
+endfunction
+
+function! ExpectBufferLines() abort
+  return call(themis#helper('expect'), [getline(1, '$')])
+endfunction

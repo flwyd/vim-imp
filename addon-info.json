@@ -1,0 +1,9 @@
+{
+  "name": "imp",
+  "description": "Extensible handling of imports for numerous languages",
+  "author": "Trevor Stone <github@trevorstone.org>",
+  "repository": {"type": "git", "url": "git://github.com/flwyd/vim-imp"},
+  "dependencies": {
+    "maktaba": {"type": "git", "url": "git://github.com/google/vim-maktaba"}
+  }
+}
