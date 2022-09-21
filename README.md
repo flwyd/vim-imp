@@ -17,6 +17,11 @@ This can be used while adding a new identifier to your program, or when running
 through quickfix errors because the compiler yelled at you for not importing
 something.
 
+Both `:ImpSuggest` and `:ImpFirst` accept multiple symbols in one command, e.g.
+`:ImpSuggest Model View Controller`, which will make a suggestion for each in
+turn. Partially-qualified imports are also supported, e.g. `:ImpFirst Math.min`
+to get `import static java.lang.Math.min;`.
+
 This README is meant to help you get started; for extensive documentation see
 `:help imp`.
 
@@ -64,6 +69,8 @@ or as a vim8 package:
 
 ```sh
 mkdir -p ~/vim/pack/vim-imp/start
+git clone https://github.com/google/vim-maktaba ~/vim/pack/vim-maktaba/start
+git clone https://github.com/google/vim-glaive ~/vim/pack/vim-glaive/start
 git clone https://github.com/flwyd/vim-imp ~/vim/pack/vim-imp/start
 ```
 
@@ -136,17 +143,15 @@ Use Imp in command mode:
 *   `:ImpFirst Optional` to insert the first/best match for `Optional`.
 
 In normal mode, the default mapping `\ii` will run `:ImpSuggest` on the symbol
-under the cursor while `\if` will run `:ImpFirst`. There aren't any default
+under the cursor while `\if` will run `:ImpFirst`. (If you have `mapleader` in
+your .vimrc then replace `\` with your chosen leader.) There aren't any default
 insert-mode mappings, but I recommend something like this, which lets you hit
 ctrl-X twice in insert mode to add the symbol next to your cursor and then keep
-typing. (I'm planing to add `<Plug>` mappings soon.)
+typing.
 
 ```vim
-if has('patch-8.2.1978')
-  inoremap <C-X><C-X> <Cmd>ImpSuggest<CR>
-else
-  inoremap <C-X><C-X> <C-\><C-O>:ImpSuggest<CR>
-endif
+inoremap <C-X><C-X> <Plug>(imp-suggest-current)
+inoremap <F3> <Plug>(imp-first-current)
 ```
 
 ## Language Support
@@ -158,7 +163,7 @@ line on the first line of the file. But the plugin is most effective when
 there's an available `lang` plugin for the filetype you're editing. As of early
 September 2022, the supported languages are
 
-*   `bzl` (load() statements in BUILD files and Starlark .bzl files)
+*   `bzl` (load() statements in Bazel BUILD files and Starlark .bzl files)
 *   `es6` (static imports in JavaScript, TypeScript, and .jsx/.tsx; no dynamic
     `import("…")` or `goog.require()` support)
 *   `java` (static and non-static imports in Java)

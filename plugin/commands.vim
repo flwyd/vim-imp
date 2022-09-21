@@ -11,6 +11,9 @@ endif
 " choose `import java.util.List;` or `import java.awt.List;`: >
 "   :ImpSuggest Collection List Set
 " <
+" Partially-qualified imports may work as well, e.g. `:ImpSuggest Math.max` to
+" get `import static java.lang.Math.max;`
+"
 " @default symbol=the word at the cursor
 command -nargs=* -bar ImpSuggest call <SID>Import({}, [<f-args>])
 

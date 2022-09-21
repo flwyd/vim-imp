@@ -14,17 +14,18 @@ endif
 "
 " `\ii` suggests imports for the symbol under (or next to) the cursor. If you
 " select one of the suggested imports, it will be inserted. See
-" @command(ImpSuggest).
+" @command(ImpSuggest). This is also available as `<Plug>(imp-suggest-current)`.
 "
 " `\if` queries suggested imports for the symbol under (or next to) the cursor.
-" Picks the first suggestion and inserts it. See @command(ImpFirst).
+" Picks the first suggestion and inserts it. See @command(ImpFirst). This is
+" also available as `<Plug>(imp-first-current)`.
 "
 " This plugin does not provide any insert-mode mappings, but consider adding
 " one for a keystroke of your choice to add an import for the symbol you just
 " typed, without disrupting editing flow: >
-"   inoremap <C-X><C-X> <Cmd>ImpFirst<CR>
-"   inoremap <F3> <C-\><C-O>:ImpSuggest<CR>
-" < (The <Cmd> variant requies |map-cmd| support, added after Vim 8.2.)
+"   inoremap <C-X><C-X> <Plug>(imp-suggest-current)
+"   inoremap <F3> <Plug>(imp-first-current)
+" <
 
 let s:prefix = s:plugin.MapPrefix('i')
 
