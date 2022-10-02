@@ -30,7 +30,7 @@ import statement inside a comment). Tests are written using
 
 ```sh
 git clone https://github.com/thinca/vim-themis ~
-~/vim-themis/bin/themis --reporter=spec ./test
+~/vim-themis/bin/themis --reporter spec ./test
 ```
 
 (On Windows use `path\to\vim-themis\bin\themis.bat`.)
