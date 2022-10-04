@@ -41,6 +41,9 @@ lets you call `foo.whatever()` rather than importing `whatever` by name.)
 
 ## Installation
 
+Imp requires Vim 8.0 or higher. If you have Vim 8+ but see an error about an
+unknown function, file a GitHub issue.
+
 This plugin depends on the [Maktaba](https://github.com/google/vim-maktaba)
 library and is best configured using
 [Glaive](https://github.com/google/vim-glaive). To install them, use your

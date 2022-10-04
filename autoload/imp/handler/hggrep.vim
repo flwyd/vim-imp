@@ -58,7 +58,7 @@ function! imp#handler#hggrep#Suggest(context, symbol) abort
   for [l:key, l:val] in items(l:filematches)
     let l:filematches[l:key] = uniq(sort(l:val))
   endfor
-  let l:all = flatten(values(l:filematches))
+  let l:all = imp#polyfill#Flattennew(values(l:filematches))
   return imp#pattern#ParseMatches(a:context, l:pat, a:symbol, l:all)
 endfunction
 

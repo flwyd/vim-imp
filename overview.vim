@@ -32,6 +32,8 @@
 "
 " @plugin(stylized) requires Vim version 8+ and depends on the Maktaba library,
 " see https://github.com/google/vim-maktaba for installation instructions.
+" If you have Vim 8.0 or higher and see an error about an unknown function,
+" file an issue at https://github.com/flwyd/vim-imp/issues
 
 ""
 " @section About, about
