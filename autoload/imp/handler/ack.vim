@@ -98,7 +98,7 @@ function! imp#handler#ack#Suggest(context, symbol) abort
       endif
     endfor
   endfor
-  let l:all = flatten(values(l:filematches))
+  let l:all = imp#polyfill#Flattennew(values(l:filematches))
   return imp#pattern#ParseMatches(a:context, l:pat, a:symbol, l:all)
 endfunction
 

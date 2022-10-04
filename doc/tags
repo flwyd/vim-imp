@@ -47,6 +47,7 @@ imp#pattern#FromPreferred()	imp.txt	/*imp#pattern#FromPreferred()*
 imp#pattern#GlobToRegex()	imp.txt	/*imp#pattern#GlobToRegex()*
 imp#pattern#ParseMatches()	imp.txt	/*imp#pattern#ParseMatches()*
 imp#pattern#SupportsPerlLookaround()	imp.txt	/*imp#pattern#SupportsPerlLookaround()*
+imp#polyfill#Flattennew()	imp.txt	/*imp#polyfill#Flattennew()*
 imp#util#AlwaysFalse()	imp.txt	/*imp#util#AlwaysFalse()*
 imp#util#ArgsList()	imp.txt	/*imp#util#ArgsList()*
 imp#util#CursorSymbol()	imp.txt	/*imp#util#CursorSymbol()*

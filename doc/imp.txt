@@ -50,7 +50,9 @@ statement for the symbol next to the cursor (you probably want
 `java.util.List` and not `java.awt.List`).
 
 Imp requires Vim version 8+ and depends on the Maktaba library, see
-https://github.com/google/vim-maktaba for installation instructions.
+https://github.com/google/vim-maktaba for installation instructions. If you
+have Vim 8.0 or higher and see an error about an unknown function, file an
+issue at https://github.com/flwyd/vim-imp/issues
 
 ==============================================================================
 COMMANDS                                                        *imp-commands*
@@ -989,6 +991,11 @@ imp#pattern#GlobToRegex({glob})                    *imp#pattern#GlobToRegex()*
   Converts a POSIX file {glob} to a POSIX regular expression.  NOTE: It is
   possible that this function mishandles some unusual glob cases. It does not
   handle some shell patterns like `{foo,bar}` disjunction.
+
+imp#polyfill#Flattennew({list}, [maxdepth])        *imp#polyfill#Flattennew()*
+  Polyfill for |flattennew()| for users before Vim 8.2.2449.  Flattens {list}
+  up to [maxdepth] levels.  Without [maxdepth], flattens all levels. Returns a
+  new list; the original is not changed.
 
 imp#util#AlwaysFalse()                                *imp#util#AlwaysFalse()*
   Variadic function which always returns 0.
