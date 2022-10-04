@@ -1,6 +1,7 @@
 let s:plugin = maktaba#plugin#Get('imp')
 let s:logger = maktaba#log#Logger('imp#handler#grep')
 let s:warnedNotExecutable = 0
+let s:grepFlavor = ''
 
 function! imp#handler#grep#IsAvailable(context) abort
   let l:grep = s:plugin.Flag('grep[command]')
@@ -10,6 +11,16 @@ function! imp#handler#grep#IsAvailable(context) abort
       call maktaba#error#Warn('%s is not executable', l:grep)
     endif
     return 0
+  endif
+  if empty(s:grepFlavor)
+    let l:grep = imp#util#ArgsList(s:plugin.Flag('grep[command]'), '--version')
+    let l:cmd = maktaba#syscall#Create(l:grep)
+    call s:logger.Debug('Running command %s', l:cmd.GetCommand())
+    let l:result = l:cmd.Call(0)
+    " e.g. 'grep (BSD grep) 2.5.1-FreeBSD' or 'grep (GNU grep) 3.4'
+    let s:grepFlavor = substitute(matchstr(l:result.stdout, '\v\(\w+ grep\)'),
+          \ '\v\((.*) grep\)', '\1', '')
+    echomsg 'grep flavor is' s:grepFlavor
   endif
   return 1
 endfunction
@@ -23,9 +34,6 @@ function! imp#handler#grep#Suggest(context, symbol) abort
   endif
   " -E extended regexp, -R recursive, -h no filename
   let l:args = ['-E', '-R', '-h']
-  " Ignore hidden dot dirs, e.g. for VCS state. A simple '.*' pattern would skip
-  " everything because we're searching '.'
-  let l:args += ['--exclude-dir', '.[0-9A-Za-z]*']
   " TODO find a way to handle multiline with grep
   if get(l:pat, 'ignorecase', 0)
     call add(l:args, '-i')
@@ -39,6 +47,15 @@ function! imp#handler#grep#Suggest(context, symbol) abort
   let l:dirs = imp#dir#PreferredLocations(a:context)
   if empty(l:dirs)
     let l:dirs = ['.']
+  endif
+  " Ignore hidden dot dirs, e.g. for VCS state. A simple '.*' pattern would skip
+  " everything because we're searching '.'
+  " Unfortunately, GNU grep applies --exclude-dir to command-line args while
+  " BSD grep applies them to paths encountered during recursion. This makes
+  " tests fail with GNU grep if run from the .vim directory, so hack around
+  " that problem here.
+  if s:grepFlavor !=# 'GNU' || match(l:dirs, '\v(^|/)\.[0-9A-Za-z]') == -1
+    let l:args += ['--exclude-dir', '.[0-9A-Za-z]*']
   endif
   let l:args += l:dirs
   return imp#pattern#ParseMatches(a:context, l:pat, a:symbol, s:runGrep(l:args))
