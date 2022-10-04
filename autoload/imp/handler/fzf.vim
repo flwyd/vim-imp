@@ -1,4 +1,4 @@
-function! imp#handler#fzf#IsAvailable(context, method) abort
+function! imp#handler#fzf#IsAvailable(context) abort
   return exists('*fzf#run')
 endfunction
 
