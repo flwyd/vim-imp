@@ -3,6 +3,9 @@
 " the filesystem should define appropriate before_each and after_each methods,
 " source this script, and then
 " call KotlinSuggestTests(s:suite, 'name#of#handler#Suggest')
+"
+" This test sets the filetype because runtime/filetype.vim didn't add Kotlin
+" until Vim 8.2.0190
 
 if exists('g:_kotlin_suggest_base')
   finish
@@ -17,12 +20,14 @@ function KotlinSuggestTests(suite, suggestfunc) abort
 
     function l:child.no_file_matches() abort closure
       exec 'edit' FixturePath('missing/dir/DoesNotExist.kt')
+      exec 'setfiletype kotlin'
       let l:found = call(a:suggestfunc, [imp#NewContext(), 'List'])
       call s:expect(l:found).to_be_empty()
     endfunction
 
     function l:child.basic_imports() abort closure
       exec 'edit' FixturePath('kotlin/Empty.kt')
+      exec 'setfiletype kotlin'
       let l:found = call(a:suggestfunc, [imp#NewContext(), 'MyClass'])
       call s:expect(l:found).to_equal(
             \ [imp#NewImport('MyClass', 'import foo.bar.baz.sub.MyClass', {'count': 1})])
@@ -39,6 +44,7 @@ function KotlinSuggestTests(suite, suggestfunc) abort
 
     function l:child.aliased_imports() abort closure
       exec 'edit' FixturePath('kotlin/Empty.kt')
+      exec 'setfiletype kotlin'
       let l:found = call(a:suggestfunc, [imp#NewContext(), 'JavaList'])
       call s:expect(l:found).to_equal([
             \ imp#NewImport('JavaList', 'import java.util.List as JavaList', {'count': 1})])
