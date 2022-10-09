@@ -164,13 +164,16 @@ file and run `:ImpSuggest foo` then the `prompt` Suggest handler will ask you
 for an import statement for `foo` and the `top` Insert handler will put that
 line on the first line of the file. But the plugin is most effective when
 there's an available `lang` plugin for the filetype you're editing. As of early
-September 2022, the supported languages are
+October 2022, the supported languages are
 
-*   `bzl` (load() statements in Bazel BUILD files and Starlark .bzl files)
+*   `bzl` (`load()` statements in Bazel BUILD files and Starlark .bzl files)
 *   `es6` (static imports in JavaScript, TypeScript, and .jsx/.tsx; no dynamic
-    `import("…")` or `goog.require()` support)
+    `import("…")` or `goog.require()` support; TODO:
+    [assertions](https://github.com/tc39/proposal-import-assertions))
 *   `java` (static and non-static imports in Java)
 *   `kotlin` (Kotlin imports, including aliases)
+*   `php` (`use` statements for PHP imports of classes, functions, and
+    constants; does not support `use trait` or closure variables)
 *   `python` (`import foo` and `from foo import bar` support including aliases)
 
 I would like to have "compatible languages" be able to import from each other if
@@ -187,15 +190,16 @@ commands could be improved? Are there imports the regex patterns fail to find?
 Is the documentation clear enough? Please open a GitHub issue if you have
 feedback about the way things work.
 
-The languages supported so far are a subset ones I've needed to use in my day
-job. If you'd like support for your favorite programming language please open a
-GitHub issue with examples of how import statements work in that language. If
-you'd like to implement support, see the
+The languages supported so far are mostly a subset ones I've needed to use in
+my day job. If you'd like support for your favorite programming language please
+open a GitHub issue with examples of how import statements work in that
+language. If you'd like to implement support, see the
 [contributor documentation](CONTRIBUTING.md). Some attractive languages include
-C#, Lua, PHP, and Rust. I haven't yet addressed languages where symbols aren't
-named explicitly: it's hard to know what symbols `#include` could bring into a C
-or C++ program, though C++ `using` statements could be handled; this problem
-also applies to Ruby, Swift, Dart, and Protocol Buffers.
+C#, D, Elixir, Go, Groovy, Haskell, Julia, Rust, Sass, Scala, and Swift. I
+haven't yet addressed languages where symbols aren't named explicitly: it's
+hard to know what symbols `#include` could bring into a C or C++ program,
+though C++ `using` statements could be handled; this problem also applies to
+Ruby, Dart, R, Ada, and Protocol Buffers.
 
 There is a running list of potential enhancements at the bottom of `:help imp`.
 
