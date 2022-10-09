@@ -42,6 +42,7 @@ imp#dir#PreferredLocations()	imp.txt	/*imp#dir#PreferredLocations()*
 imp#handler#known#Add()	imp.txt	/*imp#handler#known#Add()*
 imp#lex#NewLexer()	imp.txt	/*imp#lex#NewLexer()*
 imp#lex#NewToken()	imp.txt	/*imp#lex#NewToken()*
+imp#pattern#DebugSymbol()	imp.txt	/*imp#pattern#DebugSymbol()*
 imp#pattern#Escape()	imp.txt	/*imp#pattern#Escape()*
 imp#pattern#FromPreferred()	imp.txt	/*imp#pattern#FromPreferred()*
 imp#pattern#GlobToRegex()	imp.txt	/*imp#pattern#GlobToRegex()*

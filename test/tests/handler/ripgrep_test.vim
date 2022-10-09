@@ -12,6 +12,9 @@ source <sfile>:h/_java_suggest_base.vim
 call JavaSuggestTests(s:suite, 'imp#handler#ripgrep#Suggest')
 source <sfile>:h/_kotlin_suggest_base.vim
 call KotlinSuggestTests(s:suite, 'imp#handler#ripgrep#Suggest')
+source <sfile>:h/_php_suggest_base.vim
+call PhpSuggestTests(s:suite, 'imp#handler#ripgrep#Suggest')
+call PhpMultiLineTests(s:suite, 'imp#handler#ripgrep#Suggest')
 source <sfile>:h/_python_suggest_base.vim
 call PythonSuggestTests(s:suite, 'imp#handler#ripgrep#Suggest')
 

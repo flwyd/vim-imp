@@ -67,6 +67,7 @@ COMMANDS                                                        *imp-commands*
 <
   Partially-qualified imports may work as well, e.g. `:ImpSuggest Math.max` to
   get `import static java.lang.Math.max;`
+
   [symbol] is the word at the cursor if omitted.
 
 :ImpFirst [symbol] [symbols...]                                    *:ImpFirst*
@@ -998,6 +999,16 @@ imp#pattern#GlobToRegex({glob})                    *imp#pattern#GlobToRegex()*
   Converts a POSIX file {glob} to a POSIX regular expression.  NOTE: It is
   possible that this function mishandles some unusual glob cases. It does not
   handle some shell patterns like `{foo,bar}` disjunction.
+
+imp#pattern#DebugSymbol({symbol}, [style])         *imp#pattern#DebugSymbol()*
+  Prints file globs and regex pattterns for {symbol} based on the current
+  filetype.  [style], defaulting to `posix`, determines the regex dialect, see
+  |imp.Pattern| for possible styles.  Note that further debugging information,
+  including the full command used by a Suggest handler, can be seen from the
+  |maktaba.Logger| at debug level:
+>
+    call maktaba#log#SetNotificationLevel(maktaba#log#LEVELS.DEBUG)
+<
 
 imp#polyfill#Flattennew({list}, [maxdepth])        *imp#polyfill#Flattennew()*
   Polyfill for |flattennew()| for users before Vim 8.2.2449.  Flattens {list}

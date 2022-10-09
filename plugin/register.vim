@@ -342,6 +342,26 @@ call s:registry.AddExtension({
       \ 'filetypes': 'kotlin',
       \ 'Suggest': 'imp#lang#kotlin#Suggest'})
 
+" PHP
+call s:registry.AddExtension({
+      \ 'name': 'php',
+      \ 'description': 'PHP language import handling',
+      \ 'filetypes': 'php',
+      \ 'Insert': 'imp#lang#php#Insert',
+      \ 'Suggest': 'imp#lang#php#Suggest',
+      \ 'Pattern': 'imp#lang#php#Pattern'})
+call s:registry.AddExtension({
+      \ 'name': 'lang',
+      \ 'description': 'Import PHP statement',
+      \ 'filetypes': 'php',
+      \ 'Insert': 'imp#lang#php#Insert',
+      \ 'Pattern': 'imp#lang#php#Pattern'})
+call s:registry.AddExtension({
+      \ 'name': 'prompt',
+      \ 'description': 'Prompt with a partial PHP import statement',
+      \ 'filetypes': 'php',
+      \ 'Suggest': 'imp#lang#php#Suggest'})
+
 " Python
 call s:registry.AddExtension({
       \ 'name': 'python',

@@ -210,3 +210,28 @@ function! imp#pattern#GlobToRegex(glob) abort
   endfor
   return l:regex
 endfunction
+
+""
+" Prints file globs and regex pattterns for {symbol} based on the current
+" filetype.  [style], defaulting to `posix`, determines the regex dialect, see
+" @dict(Pattern) for possible styles.  Note that further debugging
+" information, including the full command used by a Suggest handler, can be
+" seen from the |maktaba.Logger| at debug level: >
+"   call maktaba#log#SetNotificationLevel(maktaba#log#LEVELS.DEBUG)
+" <
+" @public
+function imp#pattern#DebugSymbol(symbol, ...) abort
+  let l:style = a:0 > 0 ? a:1 : 'posix'
+  let l:context = imp#NewContext()
+  let l:pat = imp#pattern#FromPreferred(l:context, l:style, a:symbol)
+  echomsg printf('Pattern debug for %s in style %s', a:symbol, l:style)
+  if empty(l:pat)
+    echomsg 'No patterns found for filetype' l:context.filetype
+    return
+  endif
+  echomsg printf('File globs: %s', join(l:pat.fileglobs, ', '))
+  echomsg printf('%d regex patterns:', len(l:pat.patterns))
+  for l:re in l:pat.patterns
+    echomsg l:re
+  endfor
+endfunction
