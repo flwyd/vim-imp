@@ -122,8 +122,9 @@ function! s:insertSymbol(context, choice) abort
   endif
   let l:frompat = '\v\C<from\_s+[''"]'
   let l:lastline = 0
-  let l:hanging = 0
+  let l:hanging = ''
   let l:hangingstart = 0
+  let l:multistart = 0
   for l:i in range(1, line('$'))
     if imp#util#IsCommentLine(l:i)
       continue
@@ -138,9 +139,11 @@ function! s:insertSymbol(context, choice) abort
       else
         let l:hanging .= "\n" . l:line
         if match(l:hanging, ';') >= 0 || match(l:hanging, l:frompat) >= 0
-          call s:logger.Debug('Multi-line import %s', l:hanging)
+          call s:logger.Debug('Multi-line import starting %d %s', l:hangingstart, l:hanging)
           let l:line = l:hanging
           let l:hanging = ''
+          let l:multistart = l:hangingstart
+          let l:hangingstart = 0
         else
           call s:logger.Debug('Continued partial import %s', l:hanging)
           continue
@@ -179,11 +182,11 @@ function! s:insertSymbol(context, choice) abort
       let l:newline = s:importToString(l:merged)
       call s:logger.Debug('Merged %s = %s + %s',
             \ l:newline, a:choice.statement, l:line)
-      if l:hangingstart > 0
+      if l:multistart > 0
         " TODO this turns multi-line imports into single line, if that's a
         " problem we could probably guess the line-break strategy and reflow
-        call setline(l:hangingstart, l:newline)
-        execute printf('%d,%ddelete _', l:hangingstart+1, l:i)
+        call setline(l:multistart, l:newline)
+        execute printf('%d,%ddelete _', l:multistart+1, l:i)
       else
         call setline(l:i, l:newline)
       endif
@@ -254,8 +257,10 @@ function! s:parseStatement(statement) abort
   endif
   if !empty(l:matches[3])
     for l:named in split(l:matches[3], ',')
-      call add(l:parsed.named,
-            \ s:newIdentifier(s:withoutAlias(l:named), s:aliasSymbol(l:named)))
+      if !empty(trim(l:named))
+        call add(l:parsed.named,
+              \ s:newIdentifier(s:withoutAlias(l:named), s:aliasSymbol(l:named)))
+      endif
     endfor
   endif
   let l:parsed.from = trim(l:matches[4], "\"'")

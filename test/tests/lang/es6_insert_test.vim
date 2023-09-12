@@ -89,3 +89,29 @@ function s:suite.merge_with_module() abort
   call s:expect(getline(1)).to_equal('import foo, * as two from "foo-library";')
   call s:expect(getline(3)).to_equal('import {bar as baz, one} from "wherever";')
 endfunction
+
+function s:suite.several_multiline() abort
+  let l:existing = [
+        \ 'import {Alice} from "wonderland";',
+        \ 'import * as stars from "heaven";',
+        \ 'import {',
+        \ '  Bob,',
+        \ '  Carol,',
+        \ '  Dan,',
+        \ '} from "people";',
+        \ 'import * as asterisk from "punctuation";',
+        \ 'import {',
+        \ '  Eyes,',
+        \ '  Nose,',
+        \ '  Mouth,',
+        \ '} from "face";',
+        \ 'import {tea} from "china";']
+  call append(0, l:existing)
+  call s:expect(line('$')).to_equal(15)
+  let l:context = imp#NewContext()
+  let l:ears = 'import { Ears } from "face";'
+  call imp#lang#es6#Insert(l:context, [imp#NewImport('Ears', l:ears)])
+  call s:expect(line('$')).to_equal(11)
+  call s:expect(getline(9)).to_equal(
+        \ 'import {Ears, Eyes, Mouth, Nose} from "face";')
+endfunction
