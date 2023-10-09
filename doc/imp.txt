@@ -11,9 +11,10 @@ CONTENTS                                                        *imp-contents*
       1. Asynchronous handlers............................|imp-handlers-async|
       2. Available handlers................................|imp-handlers-list|
       3. Registering handlers..........................|imp-handlers-register|
-  6. Dictionaries..................................................|imp-dicts|
-  7. Functions.................................................|imp-functions|
-  8. About.........................................................|imp-about|
+  6. Regular Expressions...........................................|imp-regex|
+  7. Dictionaries..................................................|imp-dicts|
+  8. Functions.................................................|imp-functions|
+  9. About.........................................................|imp-about|
 
 ==============================================================================
 INTRODUCTION                                                       *imp-intro*
@@ -647,6 +648,88 @@ for any 'filetype'.  If it is a string or list, the handler will only be tried
 for matchig languages (skipping even `IsAvailable` checks).
 
 ==============================================================================
+REGULAR EXPRESSIONS                                                *imp-regex*
+
+@stylized(plugin) handlers often need to build multiple regular expressions,
+reusing non-trivial sub-expressions.  For example, the `java` handler reuses a
+regex fragment like `(?:\w+\.)+\w+` (a qualified symbol like `java.util.List`)
+in two top-level regexes: one for static imports and one for class imports.
+Building these regular expressions by simple string concatenation can lead to
+hard-to-read code, particularly since Pattern handlers need to produce
+patterns for different regex libraries; Vim's syntax for regex metacharacters
+in particular can be tricky to get right.
+
+@stylized(plugin) provides `imp#re`, a library for building abstract regular
+expression patterns from smaller components--either function calls inline or
+reference to variables for reusable sub-patterns.  While this code takes
+longer to write than a literal regex string, it should be significantly easier
+to read and maintain.  This library also takes care of all of the syntactic
+details for each regex engine, so a handler author only needs to write each
+pattern once, calling `InStyle(engine)` to generate syntactically valid input
+for any supported library.
+
+Motivating examples for using the `imp#re` library follow.  See help for each
+function for more details.  Note that the patterns below don't precisely match
+language identifier rules, e.g. accepting a leading digit and not accepting
+non-ASCII Unicode identifiers.  In practice, this isn't likely to matter.
+
+Java:
+>
+  " Instead of '^\s*import\s+(?:static\s+)?(?:\w+\.)+(List)\s*;'
+  let l:wantSymbol = imp#re#Literal('List')
+  let l:space = imp#re#AsciiWhitespace().AtLeastOnce()
+  let l:maybeSpace = imp#re#AsciiWhitespace().AnyTimes()
+  let l:javaIdent = imp#re#AsciiWord().AnyTimes()
+  let l:qualifiedSymbol = imp#re#Sequence([
+    imp#re#Group([l:javaIdent, imp#re#Literal('.')]).AnyTimes(),
+    l:javaIdent.Named('symbol')])
+  let l:staticImport = imp#re#Pattern([
+    imp#re#LineStart(), l:maybeSpace,
+    imp#re#Literal('import'), l:space,
+    imp#re#Literal('static'), l:space,
+    l:qualifiedSymbol, l:maybeSpace,
+    imp#re#Literal(';')])
+  let l:classImport = imp#re#Pattern([
+    imp#re#LineStart(), l:maybeSpace,
+    imp#re#Literal('import'), l:space,
+    l:qualifiedSymbol, l:maybeSpace,
+    imp#re#Literal(';')])
+  " Replace the patterns which map any import with one that just matches
+  " the symbol we want.
+  let l:patterns = mapnew([l:staticImport, l:classImport],
+    {p -> p.Replace('symbol', l:wantSymbol).InStyle('vim'))
+  " l:patterns now has two strings which map the two Java import styles with
+  " proper Vim metacharacters and escaping
+<
+
+Python:
+>
+  " Instead of '^\s*import\s+(?:\w+\.)*(\w+)\b'
+  " and '^\s*from\s+(?:\w+\.)*\w+\s+import\s+(\w+)(?:\s+as\s+(\w+))'
+  let l:pyIdent = imp#re#AsciiWord().AnyTimes()
+  let l:pkgPrefix = imp#re#Group([pyIdent, imp#re#Literal('.')])
+  let l:space = imp#re#AsciiWhitespace().AtLeastOnce(),
+  let l:style1 = imp#re#Sequence([
+    imp#re#LineStart(), imp#re#Space().AnyTimes(),
+    imp#re#Literal('import'), l:space,
+    (l:pkgPrefix).AnyTimes(),
+    l:pyIdent.Named('symbol'),
+    imp#re#LineEnd()])
+  let l:style2 = imp#re#Sequence([
+    imp#re#LineStart(), imp#re#Space().AnyTimes(),
+    imp#re#Literal('from'), l:space,
+    imp#re#AnyTimes(l:pkgPrefix),
+    l:pyIdent, l:space,
+    imp#re#Literal('import'), l:space,
+    l:pyIdent.Named('symbol'),
+    imp#re#LineEnd()])
+  " A single pattern to match any import in either style
+  let l:pat = imp#re#Pattern([imp#re#Or([l:pat1, l:pat2])])
+  " A string ready to pass to a program built with the PCRE library
+  let l:regex = l:pat.InStyle('pcre')
+<
+
+==============================================================================
 DICTIONARIES                                                       *imp-dicts*
 
                                                                  *imp.Context*
@@ -1014,6 +1097,103 @@ imp#polyfill#Flattennew({list}, [maxdepth])        *imp#polyfill#Flattennew()*
   Polyfill for |flattennew()| for users before Vim 8.2.2449.  Flattens {list}
   up to [maxdepth] levels.  Without [maxdepth], flattens all levels. Returns a
   new list; the original is not changed.
+
+imp#re#Atom({properties})                                      *imp#re#Atom()*
+  Atom is a "base class" for components of regular expressions.  The Atom
+  constructor sets default properties and method references, overwritten and
+  extended by anything in {properties}.  Atoms are immutable, but
+  copy-to-mutate is a common pattern.
+
+imp#re#Pattern({atoms})                                     *imp#re#Pattern()*
+  Pattern is a complete regular expression, made up of one or more {atoms}.
+  Pattern is not itself an Atom, and provides top-level methods:
+  `Replace(name, atom)` to swap one part of a regex for a different atom, and
+  `InStyle(style)` to convert the Pattern to a string suitable for
+  interpretation by a particular library, e.g. `vim, posix, pcre, perl, rust`.
+
+imp#re#LineStart()                                        *imp#re#LineStart()*
+  Anchors a regex at the beginning of a line.  Regex syntax: `^`
+
+imp#re#LineEnd()                                            *imp#re#LineEnd()*
+  Anchors a regex at the end of a line.  Regex syntax: `$`
+
+imp#re#Literal({text})                                      *imp#re#Literal()*
+  Matches exactly {text}.  Escaping is performed so that no characters in text
+  are treated as metacharacters.
+
+imp#re#AnyCharacter()                                  *imp#re#AnyCharacter()*
+  Matches a signle character.  Regex syntax: `.`
+
+imp#re#Sequence({atoms})                                   *imp#re#Sequence()*
+  Matches one or more {atoms} in sequence.  No special syntax is provided
+  unless a method like `.AnyTimes()` turns a sequence into a group. Sequence
+  is mostly useful when a single atom is needed for a reusable variable.
+
+imp#re#Group({atoms})                                         *imp#re#Group()*
+  A non-capturing group of {atoms} treated as a single atom.  Regex syntax
+  (POSIX style): `(?:ab?c*)`.
+
+imp#re#Capture({atoms})                                     *imp#re#Capture()*
+  A capturing group of {atoms}.  All other grouping mechanisms, including
+  `imp#re#Group` and methods like `AnyTimes()` will create non-capturing
+  groups, making it feasible to count the index of Capture groups.  If this
+  atom is `Named()` and the regex style supports named groups, the name will
+  be used.  Regex syntax: `(ab?c*)`
+
+imp#re#Or({atoms})                                               *imp#re#Or()*
+  Exactly one of {atoms}.  Regex syntax: `a|b+|c*`
+
+imp#re#CharacterList({chars})                         *imp#re#CharacterList()*
+  One character from {chars}.  Escaping is done so that any character in the
+  list is matched literaly, not as a metacharacter.  The `Negate()` method
+  matches any character NOT in the list  Regex syntax: `[abc]`
+
+imp#re#CharacterRange({min}, {max})                  *imp#re#CharacterRange()*
+  A range of characters from {min} to {max} inclusive.  The `Negate()` method
+  creates an atom matching any character NOT in range.  Regex syntax: `[a-c]`
+
+imp#re#CharacterClass({name})                        *imp#re#CharacterClass()*
+  A named character class.  {name} must be known by the regex engine, e.g.
+  `digit` or `space`.  The `Negate()` method matches any character NOT in the
+  class.  Regex syntax: `[[:name:]]`
+
+imp#re#CharacterClassShortcut({letter})      *imp#re#CharacterClassShortcut()*
+  A single-{letter} character class.  Valid letters are `d` for digit, `s` for
+  space, and `w` for word (letter, digit, or underscore).  Capital `D`, `S`,
+  and `W` negate the character class.  The `Negate()` method switches between
+  lower and upper case.  Regex syntax: `\w+\s+\S*`
+
+imp#re#AsciiDigit()                                      *imp#re#AsciiDigit()*
+  Matches a single ASCII digit, 0 through 9.
+
+imp#re#AsciiWord()                                        *imp#re#AsciiWord()*
+  Matches a single ASCII letter, digit, or underscore.
+
+imp#re#AsciiWhitespace()                            *imp#re#AsciiWhitespace()*
+  Matches a single ASCII whitespace character, e.g. space, tab, or newline.
+
+imp#re#CharacterSet({atoms})                           *imp#re#CharacterSet()*
+  Matches one of a list of character set {atoms}.  The `Negate()` method
+  matches any character not in the set.  For example,
+  `imp#re#CharacterSet([imp#re#CharacterClass('digit'),
+  imp#re#CharacterList('abcdef')])`.  Regex syntax: `[[:digit:]abcdef]`
+
+imp#re#AnyTimes({atom})                                    *imp#re#AnyTimes()*
+  Matches zero or more occurrences of {atom}.  Regex syntax: `a*` Typically
+  called as a method on an atom: `imp#re#Literal('a').AnyTimes()`.
+
+imp#re#AtLeastOnce({atom})                              *imp#re#AtLeastOnce()*
+  Matches one or more occurrences of {atom}.  Regex syntax: `a+` Typically
+  called as a method on an atom: `imp#re#Literal('a').AtLeastOnce()`.
+
+imp#re#MaybeOnce({atom})                                  *imp#re#MaybeOnce()*
+  Matches zero or one occurrences of {atom}.  Regex syntax: `a?` Typically
+  called as a method on an atom: `imp#re#Literal('a').MaybeOnce()`.
+
+imp#re#Repeated({atom}, {min}, {max})                      *imp#re#Repeated()*
+  Matches {atom} at least {min} times and not more than {max} times. Regex
+  syntax: `a?` Typically called as a method on an atom:
+  `imp#re#Literal('a').Repeated(2,4)`.
 
 imp#util#AlwaysFalse()                                *imp#util#AlwaysFalse()*
   Variadic function which always returns 0.

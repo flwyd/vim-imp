@@ -3,7 +3,7 @@
 
 ""
 " @section Introduction, intro
-" @order intro commands mappings config handlers dicts functions about
+" @order intro commands mappings config handlers regex dicts functions about
 " @stylized Imp
 " @plugin(stylized) is an extensible plugin for handling import statements for a
 " variety of programming languages.  It operates on a pipeline model where

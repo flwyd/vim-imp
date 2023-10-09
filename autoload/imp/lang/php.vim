@@ -107,36 +107,67 @@ function! s:position(import) abort
   return 1
 endfunction
 
+let s:whitespace = imp#re#AsciiWhitespace().AtLeastOnce()
+let s:maybeWhitespace = imp#re#AsciiWhitespace().AnyTimes()
+let s:kindLiteral = imp#re#Or(
+      \ [imp#re#Literal('const'), imp#re#Literal('function')]).Named('kind')
+let s:maybeKind = imp#re#Sequence([s:kindLiteral, s:whitespace]).MaybeOnce()
+let s:identifier = imp#re#AsciiWord().AtLeastOnce()
+let s:namespace = imp#re#Sequence([
+      \ imp#re#Literal('\').MaybeOnce(),
+      \ imp#re#Group([s:identifier, imp#re#Literal('\')]).AtLeastOnce()])
+let s:optionalNamespace = imp#re#Sequence([
+      \ imp#re#Literal('\').MaybeOnce(),
+      \ imp#re#Group([s:identifier, imp#re#Literal('\')]).AnyTimes()])
+let s:qualifiedIdentifier = imp#re#Sequence([
+      \ s:optionalNamespace, s:identifier])
+let s:qualifiedSymbol = imp#re#Sequence([
+      \ s:optionalNamespace, s:identifier.Named('symbol')])
+let s:maybeAliasedIdentifier = imp#re#Sequence([s:qualifiedIdentifier,
+      \ imp#re#Group([
+      \ s:whitespace, imp#re#Literal('as'),
+      \ s:whitespace, s:identifier]).MaybeOnce()])
+let s:aliasedToSymbol = imp#re#Sequence([s:qualifiedIdentifier,
+      \ s:whitespace, imp#re#Literal('as'),
+      \ s:whitespace, s:identifier.Named('symbol')])
+" Allow the leading part of `use \Foo\Bar, Baz\Qux, Path\To\Symbol;`
+let s:importListTrailingComma = imp#re#Group([
+      \ s:maybeKind, s:maybeAliasedIdentifier, s:maybeWhitespace,
+      \ imp#re#Literal(','), s:maybeWhitespace]).AnyTimes()
+" Allow the trailing part of `use Path\To\Symbol, \Foo\Bar, Baz\Qux;`
+let s:importListLeadingComma = imp#re#Group([
+      \ imp#re#Literal(','), s:maybeWhitespace,
+      \ s:maybeKind, s:maybeAliasedIdentifier, s:maybeWhitespace]).AnyTimes()
+" Anchor to start of line to avoid `use trait` and closures
+let s:usePrefix = imp#re#Sequence([
+      \ imp#re#LineStart(), imp#re#Literal('use'), s:whitespace, s:maybeKind])
+" Style of use statements:
+" Style #1: `use Path\To\Symbol;`
+let s:useSymbol = imp#re#Pattern([s:usePrefix, s:importListTrailingComma,
+      \ s:qualifiedSymbol.Named('qualifiedsymbol'),
+      \ s:maybeWhitespace, s:importListLeadingComma, imp#re#Literal(';')])
+" Style #2: `use Path\To\Something as Symbol;`
+let s:useAliasedSymbol =
+      \ s:useSymbol.Replace('qualifiedsymbol', s:aliasedToSymbol)
+" Style #3: `use Path\To\{Foo, Something, Subpath\Bar};`
+let s:useGroupedSymbol = s:useSymbol.Replace('qualifiedsymbol',
+      \ imp#re#Sequence([
+      \ s:namespace, imp#re#Literal('{'), s:maybeWhitespace,
+      \ s:importListTrailingComma, s:maybeKind,
+      \ s:qualifiedSymbol.Named('symbolingroup'),
+      \ s:maybeWhitespace, s:importListLeadingComma,
+      \ imp#re#Literal(',').MaybeOnce(), s:maybeWhitespace,
+      \ imp#re#Literal('}')]))
+" Style #4: `use Path\To\{Foo, Something as Symbol, Subpath\Bar};`
+let s:useGroupedAliasedSymbol =
+      \ s:useGroupedSymbol.Replace('symbolingroup', s:aliasedToSymbol)
+
 function! imp#lang#php#Pattern(context, style, symbol) abort
-  let l:word = imp#pattern#Escape(a:style, a:symbol)
-  if a:style ==# 'vim'
-    let l:word .= '\v'
-  endif
-  " Case sensitive patterns even though PHP doesn't require it
-  let l:prefix = a:style ==# 'vim' ? '\v\C' : ''
-  " Anchor to start of line to avoid trait and closure 'use' synatx
-  if a:style ==# 'posix_basic'
-    " The patterns are pretty hairy; extra escaping would be rough
-    return {}
-  else
-    " Fully-qualified name that's not the symbol, used to match other imports
-    let l:fqname = '(\\?(\w+\\)*\w+(\s+as\s+\w+)?)'
-    let l:kind = '((const|function)\s+)?'
-    " 1: use Path\To\Symbol;
-    " 2: use Path\To\Symbol as Renamed;
-    " 3: use Path\To\{Group\Of, Symbols};
-    " 4: use Path\To\{Group\Of, Symbols as Renamed};
-    " All patterns support one or more imports and optional function/const
-    let l:patterns = [
-          \ printf('%s^use\s+%s(%s\s*,\s*)*\\?(\w+\\)*%s\s*(,\s*%s\s*)*,?\s*;',
-            \ l:prefix, l:kind, l:fqname, l:word, l:fqname),
-          \ printf('%s^use\s+%s(%s\s*,\s*)*\\?(\w+\\)*\w+\s+as\s+%s\s*(,\s*%s\s*)*,?\s*;',
-            \ l:prefix, l:kind, l:fqname, l:word, l:fqname),
-          \ printf('%s^use\s+%s\\?(\w+\\)+\{\s*(%s%s\s*,\s*)*%s(\w+\\)*%s\s*(,\s*%s%s\s*)*,?\s*\}\s*;',
-            \ l:prefix, l:kind, l:kind, l:fqname, l:kind, l:word, l:kind, l:fqname),
-          \ printf('%s^use\s+%s\\?(\w+\\)+\{\s*(%s%s\s*,\s*)*%s(\w+\\)*\w+\s+as\s+%s\s*(,\s*%s%s\s*)*,?\s*\}\s*;',
-            \ l:prefix, l:kind, l:kind, l:fqname, l:kind, l:word, l:kind, l:fqname)]
-  endif
+  let l:word = imp#re#Literal(a:symbol)
+  let l:patterns = maktaba#function#Map(
+        \ [s:useSymbol, s:useAliasedSymbol, s:useGroupedSymbol,
+        \ s:useGroupedAliasedSymbol],
+        \ {p -> p.Replace('symbol', l:word).InStyle(a:style)})
   return {'patterns': l:patterns, 'style': a:style, 'multiline': 1,
         \ 'fileglobs': ['*.php', '*.phar', '*.phtml', '*.pht', '*.phps'],
         \ 'Parse': function('s:parseImport')}
@@ -152,12 +183,7 @@ function! s:parseImport(context, symbol, line) abort
   for l:name in l:parsed.names
     if l:name.alias ==# a:symbol
           \ || empty(l:name.alias) && l:name.fqname[-1] ==# a:symbol
-      if empty(l:parsed.groupPrefix)
-        let l:import = s:nameToString(l:name)
-      else
-        let l:import = printf('%s\%s', l:parsed.groupPrefix,
-              \ s:nameToString(l:name, 1))
-      endif
+      let l:import = l:parsed.groupPrefix . s:nameToString(l:name, 1)
       if !empty(l:name.kind)
         let l:kind = l:name.kind . ' '
       endif
@@ -173,45 +199,49 @@ function! s:parseImport(context, symbol, line) abort
   return imp#NewImport(a:symbol, l:statement)
 endfunction
 
+let s:importEnvelopePat = imp#re#Pattern([imp#re#LineStart(),
+      \ imp#re#Literal('use'), s:whitespace, imp#re#Capture([s:maybeKind]),
+      \ imp#re#Capture([imp#re#AnyCharacter().AtLeastOnce()]),
+      \ imp#re#Literal(';')]).InStyle('vim')
+let s:groupImportPat = imp#re#Pattern([
+      \ imp#re#Capture([s:namespace]),
+      \ imp#re#Literal('{'), s:maybeWhitespace,
+      \ imp#re#Capture([
+      \ s:importListTrailingComma, s:maybeKind, s:maybeAliasedIdentifier]),
+      \ s:maybeWhitespace, imp#re#Literal(',').MaybeOnce(),
+      \ s:maybeWhitespace, imp#re#Literal('}')]).InStyle('vim')
+let s:singleImportPat = imp#re#Pattern([
+      \ imp#re#Capture([s:qualifiedSymbol]),
+      \ imp#re#Group([s:whitespace, imp#re#Literal('as'), s:whitespace,
+        \ imp#re#Capture([s:identifier])]).MaybeOnce(),
+      \ s:maybeWhitespace]).InStyle('vim')
 function! s:parseStatement(statement) abort
-  let l:parts = matchlist(a:statement,
-        \ '\v\c^\s*use\s+%((const|function)\s+)?(\\?%(\w+\\)*\w+)(\s+as\s+\w+)?\s*(,|;|as\s+|\\\s*\{)')
-  if empty(l:parts)
-    call s:logger.Debug('Invalid use statement: %s', a:statement)
+  let l:match = matchlist(a:statement, s:importEnvelopePat)
+  if empty(l:match)
     return {}
   endif
-  let l:parsed = {'kind': l:parts[1], 'names': [], 'groupPrefix': ''}
-  if l:parts[4] =~# '\v\{'
-    let l:parsed.groupPrefix = l:parts[2]
-    let l:groups = substitute(a:statement, '\v.*\{(.*)\}\s*;', '\1', '')
-    if l:groups ==# a:statement
-      call s:logger.Debug('Error parsing group import: %s', a:statement)
-      return {}
-    endif
-    for l:group in split(l:groups, '\v\_s*,\_s*')
-      let l:name = s:parseName(l:group)
-      if empty(l:name)
-        call s:logger.Debug('Invalid import "%s" in group: %s',
-              \ l:group, a:statement)
-        continue
-      endif
-      call add(l:parsed.names, l:name)
-    endfor
-  else
-    let l:symbols = substitute(a:statement,
-          \ '\v\c^\s*use\s+%(%(const|function)\s+)?(.*)', '\1', '')
-    let l:symbols = substitute(l:symbols, '\v\_s*;.*', '', '')
-    for l:sym in split(l:symbols, '\v\_s*,\_s*')
-      let l:name = s:parseName(l:sym)
-      if empty(l:name)
-        call s:logger.Debug('Invalid multiple import "%s" in statement: %s',
-              \ l:sym, a:statement)
-        continue
-      endif
-      call add(l:parsed.names, l:name)
-    endfor
+  let l:kind = trim(l:match[1])
+  let l:body = l:match[2]
+  let l:match = matchlist(l:body, s:groupImportPat)
+  if !empty(l:match)
+    let l:namespace = l:match[1]
+    let l:children = split(l:match[2], ',')
+    let l:names = maktaba#function#Map(l:children, function('s:parseName'))
+    return {'kind': l:kind, 'groupPrefix': l:namespace, 'names': l:names}
   endif
-  return l:parsed
+  let l:result = {'kind': l:kind, 'names': [], 'groupPrefix': ''}
+  for l:import in split(l:body, ',')
+    let l:match = matchlist(trim(l:import), s:singleImportPat)
+    if !empty(l:match)
+      let l:qualified = l:match[1]
+      let l:alias = l:match[2]
+      call add(l:result.names, s:newName('', l:qualified, l:alias))
+    endif
+  endfor
+  if empty(l:result.names)
+    return {}
+  endif
+  return l:result
 endfunction
 
 function! s:containsImport(import1, import2) abort
@@ -225,9 +255,7 @@ endfunction
 function! s:expandImport(import) abort
   let l:result = []
   let l:prefix = empty(a:import.kind) ? '' : a:import.kind . ' '
-  if !empty(a:import.groupPrefix)
-    let l:prefix .= a:import.groupPrefix . '\'
-  endif
+  let l:prefix .= a:import.groupPrefix
   for l:name in a:import.names
     let l:full = l:prefix
     if empty(l:name.kind)
@@ -242,9 +270,14 @@ function! s:expandImport(import) abort
   return l:result
 endfunction
 
+let s:parseNamePat = imp#re#Pattern([
+      \ imp#re#Capture([s:maybeKind]),
+      \ imp#re#Capture([s:qualifiedIdentifier]),
+      \ imp#re#Group([s:whitespace, imp#re#Literal('as'),
+        \ s:whitespace, imp#re#Capture([s:identifier])]).MaybeOnce()])
+      \ .InStyle('vim')
 function! s:parseName(text) abort
-  let l:parts = matchlist(a:text,
-        \ '\v\c^\_s*%((const|function)\_s+)?(\_S+)%(\_s+as\_s+(\w+))?')
+  let l:parts = matchlist(a:text, s:parseNamePat)
   if empty(l:parts)
     return {}
   endif
@@ -252,8 +285,8 @@ function! s:parseName(text) abort
 endfunction
 
 function! s:newName(kind, fqname, alias) abort
-  return {'kind': a:kind, 'fqname': split(a:fqname, '\\'),
-        \ 'alias': a:alias}
+  return {'kind': trim(a:kind), 'fqname': split(trim(a:fqname), '\\'),
+        \ 'alias': trim(a:alias)}
 endfunction
 
 function! s:nameToString(name, ...) abort

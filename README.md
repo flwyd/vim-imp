@@ -164,7 +164,7 @@ file and run `:ImpSuggest foo` then the `prompt` Suggest handler will ask you
 for an import statement for `foo` and the `top` Insert handler will put that
 line on the first line of the file. But the plugin is most effective when
 there's an available `lang` plugin for the filetype you're editing. As of early
-October 2022, the supported languages are
+October 2023, the supported languages are
 
 *   `bzl` (`load()` statements in Bazel BUILD files and Starlark .bzl files)
 *   `es6` (static imports in JavaScript, TypeScript, and .jsx/.tsx; no dynamic
@@ -182,13 +182,39 @@ import `MyJavaUtil` from Kotlin even if you're the first person to import it in
 a `.kt` file. I haven't decided exactly how to do this yet, though; I'm
 considering a `jvm` handler.
 
+### Add support for your favorite language
+
+Imp, via Maktaba and Glaive, provides plugin hooks for developers to add
+support for other languages or generic handlers.  Supporting a new language
+generally requires implementing `Pattern` and `Insert` handler functions for
+the language.  The `Pattern` handler provides a set of regular expressions
+which are passed to regex engines like `vim`, `grep`, or `ag` to search source
+code files for possible import statements.  A set of functions under `imp#re`
+are provided to make such regular expressions more readable and reusable; see
+`:help imp-regex`.  The `Import` handler determines where to add the import
+statement in the current buffer; this often reuses regex patterns from the
+`Pattern` handler or may build a basic lexer for the language in question.  See
+[autoload/imp/lang/java.vim] for an example of the reusable regex approach or
+[autoload/impp/lang/python.vim] for an example with a lexer.
+See `:help imp-handlers` for general instructions on how to write a handler.
+
+If you add support for a language or using a tool that’s publicly available,
+please consider contributing the handler as open source, either in the vim-imp
+repository or as a separate Vim plugin.  If you add support for a language or
+DSL used only inside your own organization, you are certainly welcome to keep
+the work private.  I’ve tested extensibility support by writing handlers for
+both a private source code search tool and a company-internal language.
+
+Questions about writing handlers are welcome via GitHub issues or email.
+
 ## Feedback and future plans
 
-I've been this plugin using for several months and it feels pretty ergonomic,
-but I would love feedback. Are the defaults sensible? Are there ways the
-commands could be improved? Are there imports the regex patterns fail to find?
-Is the documentation clear enough? Please open a GitHub issue if you have
-feedback about the way things work.
+I've been using this plugin on a daily basis for over a year (mostly with Java
+and Kotlin code) and it feels pretty ergonomic, but I would love more feedback.
+Are the defaults sensible? Are there ways the commands could be improved? Are
+there imports the regex patterns fail to find?  Is the documentation clear
+enough?  Please open a GitHub issue if you have feedback about the way things
+work.
 
 The languages supported so far are mostly a subset ones I've needed to use in
 my day job. If you'd like support for your favorite programming language please
@@ -205,7 +231,7 @@ There is a running list of potential enhancements at the bottom of `:help imp`.
 
 ## License
 
-Vim Imp is copyright 2022 Google LLC. It is made available under the Apache 2.0
+Vim Imp is copyright 2023 Google LLC. It is made available under the Apache 2.0
 license, see [`LICENSE`](LICENSE) for details.
 
 ## Disclaimer

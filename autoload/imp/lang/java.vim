@@ -16,35 +16,73 @@
 " but not wildcard imports.
 " See https://docs.oracle.com/javase/tutorial/java/package/usepkgs.html
 
+let s:logger = maktaba#log#Logger('imp#lang#java')
+let s:fullyQualified = imp#re#Capture([
+      \ imp#re#Group([imp#re#AsciiWord().AtLeastOnce(), imp#re#Literal('.')])
+      \ .AtLeastOnce(),
+      \ imp#re#AsciiWord().AtLeastOnce().Named('symbol')])
+let s:importStatic = imp#re#Sequence([
+      \ imp#re#LineStart(),
+      \ imp#re#Literal('import'),
+      \ imp#re#AsciiWhitespace().AtLeastOnce(),
+      \ imp#re#Literal('static'),
+      \ imp#re#AsciiWhitespace().AtLeastOnce(),
+      \ s:fullyQualified,
+      \ imp#re#AsciiWhitespace().AnyTimes(),
+      \ imp#re#Literal(';')])
+let s:importType = imp#re#Sequence([
+      \ imp#re#LineStart(),
+      \ imp#re#Literal('import'),
+      \ imp#re#AsciiWhitespace().AtLeastOnce(),
+      \ s:fullyQualified,
+      \ imp#re#AsciiWhitespace().AnyTimes(),
+      \ imp#re#Literal(';')])
+let s:qualifiedImportGroup = 1
+let s:staticOrType = imp#re#Or([s:importStatic, s:importType])
+
 function! imp#lang#java#Pattern(context, style, symbol) abort
-  let l:word = imp#pattern#Escape(a:style, a:symbol)
-  if a:style ==# 'vim'
-    let l:word .= '\v'
-  endif
-  let l:prefix = a:style ==# 'vim' ? '\v\C' : ''
-  if a:style ==# 'posix_basic'
-    let l:patterns = [
-          \ printf('^import\s\+\(\w\+\.\)\+%s;', l:word),
-          \ printf('^import\s\+static\s\+\(\w\+\.\)\+%s;', l:word)]
-  else
-    let l:patterns = [
-          \ printf('%s^import\s+(\w+\.)+%s;', l:prefix, l:word),
-          \ printf('%s^import\s+static\s+(\w+\.)+%s;', l:prefix, l:word)]
-  endif
+  let l:literal = imp#re#Literal(a:symbol).Named('symbol')
+  let l:patterns = [
+        \ imp#re#Pattern([s:importType.Replace('symbol', l:literal)])
+        \ .InStyle(a:style),
+        \ imp#re#Pattern([s:importStatic.Replace('symbol', l:literal)])
+        \ .InStyle(a:style)]
   return {'patterns': l:patterns, 'fileglobs': ['*.java'], 'style': a:style,
         \ 'Parse': function('s:parseImport')}
 endfunction
 
 function! s:parseImport(context, symbol, line) abort
-  let l:sym = imp#pattern#Escape('vim', a:symbol) . '\v'
-  let l:match = matchlist(a:line,
-        \ printf('\v\Cimport\_s+(static\s+)?(.+%s)', l:sym))
-  if empty(l:match)
-  return {}
+  let l:parsed = s:parseLine(a:line)
+  if empty(l:parsed)
+    call s:logger.Debug('Could not parse line %s', a:line)
   endif
-  let l:static = empty(l:match[1]) ? '' : 'static '
-  return imp#NewImport(a:symbol, printf('import %s%s;',
-        \ l:static, substitute(l:match[2], '\v\_s+', '', 'g')))
+  if l:parsed.symbol !=# a:symbol
+    call s:logger.Warn('Expected symbol %s but parsed %s from %s',
+          \ a:symbol, l:parsed.symbol, a:line)
+  endif
+  return l:parsed
+endfunction
+
+function s:parseLine(line) abort
+  let l:match = matchlist(a:line,
+        \ imp#re#Pattern([s:staticOrType]).InStyle('vim'))
+  if empty(l:match)
+    return {}
+  endif
+  if !empty(l:match[s:qualifiedImportGroup])
+    let l:qualified = l:match[s:qualifiedImportGroup]
+    let l:static = 'static '
+  elseif !empty(l:match[s:qualifiedImportGroup * 2])
+    let l:qualified = l:match[s:qualifiedImportGroup * 2]
+    let l:static = ''
+  else
+    throw maktaba#error#Message('BadState',
+          \ 'Matched %s but could not identify qualified type %s',
+          \ a:line, l:match)
+  endif
+  let l:qualified = substitute(l:qualified, '\v\_s+', '', 'g')
+  let l:symbol = split(l:qualified, '\v\.')[-1]
+  return imp#NewImport(l:symbol, printf('import %s%s;', l:static, l:qualified))
 endfunction
 
 function! imp#lang#java#Suggest(context, symbol) abort
@@ -69,14 +107,14 @@ endfunction
 
 function! s:position(import) abort
   let l:static = s:isStatic(a:import.statement)
-  let l:qualified = s:qualifiedIdentifier(a:import.statement)
   let l:first = {'static': 0, 'non': 0}
   let l:last = {'static': 0, 'non': 0}
+  let l:pat = imp#re#Pattern([s:staticOrType])
   let l:importlines = imp#util#FindLines(
-        \ '\v\C^import\s+(static\s+)?\S+[.$]\k+;',
-        \ 1, function('s:matchEndOfImports'))
+        \ l:pat.InStyle('vim'), 1, function('s:matchEndOfImports'))
   for [l:linenum, l:line] in l:importlines
-    if l:qualified ==# s:qualifiedIdentifier(l:line)
+    let l:parsed = s:parseLine(l:line)
+    if !empty(l:parsed) && l:parsed.statement ==# a:import.statement
       " already imported
       return -1
     endif
@@ -118,11 +156,6 @@ endfunction
 
 function! s:isStatic(statement) abort
   return match(a:statement, '\v\C^\s*<import>\s+<static>') >= 0
-endfunction
-
-function! s:qualifiedIdentifier(statement) abort
-  return substitute(a:statement,
-        \ '\v\C.*<import>%(\s+<static>)?\s+([.$[:ident:]]+).*', '\1', '')
 endfunction
 
 function! s:probablyStatic(symbol) abort
