@@ -38,9 +38,9 @@ function! imp#handler#window#Pick(Done, context, suggestions) abort
         \ 'q': ['imp#util#AlwaysFalse', 'Close', 'Insert all choices'],
         \ }
   let l:selector = maktaba#ui#selector#Create(l:items)
-        \ .WithMappings(l:keys)
-        \ .WithExtraOptions(function('s:windowOptions', [l:listener]))
-        \ .WithName('import ' . l:symbol)
+        \.WithMappings(l:keys)
+        \.WithExtraOptions(function('s:windowOptions', [l:listener]))
+        \.WithName('import ' . l:symbol)
   call l:selector.Show()
 endfunction
 

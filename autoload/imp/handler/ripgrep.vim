@@ -128,8 +128,8 @@ function! s:base64Decode(input) abort
     return base64#decode(a:input)
   endif
   if executable('base64')
-    let l:cmd = maktaba#syscall#Create(['base64', '--decode'])
-          \ .WithStdin(a:input)
+    let l:cmd =
+          \ maktaba#syscall#Create(['base64', '--decode']).WithStdin(a:input)
     let l:result = l:cmd.Call()
     if v:shell_error
       call s:logger.Warn('Error decoding base64 match "%s"', a:input)

@@ -273,9 +273,9 @@ endfunction
 let s:parseNamePat = imp#re#Pattern([
       \ imp#re#Capture([s:maybeKind]),
       \ imp#re#Capture([s:qualifiedIdentifier]),
-      \ imp#re#Group([s:whitespace, imp#re#Literal('as'),
-        \ s:whitespace, imp#re#Capture([s:identifier])]).MaybeOnce()])
-      \ .InStyle('vim')
+      \ imp#re#Group([s:whitespace, imp#re#Literal('as'), s:whitespace,
+        \ imp#re#Capture([s:identifier])]).MaybeOnce()]
+      \ ).InStyle('vim')
 function! s:parseName(text) abort
   let l:parts = matchlist(a:text, s:parseNamePat)
   if empty(l:parts)

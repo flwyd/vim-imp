@@ -39,7 +39,7 @@ endfunction
 ""
 " @public
 " Returns the first item in {list} where {expr} (a maktaba Callable which
-" accepts a single argument) returns a truthy value.  Returns |v:none| if no
+" accepts a single argument) returns a truthy value.  Returns |v:null| if no
 " item in the list matched.
 function! imp#util#Find(list, expr) abort
   call maktaba#ensure#IsList(a:list)
@@ -49,7 +49,7 @@ function! imp#util#Find(list, expr) abort
       return l:val
     endif
   endfor
-  return v:none
+  return v:null
 endfunction
 
 ""

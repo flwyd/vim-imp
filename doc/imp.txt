@@ -1200,7 +1200,7 @@ imp#util#AlwaysFalse()                                *imp#util#AlwaysFalse()*
 
 imp#util#Find({list}, {expr})                                *imp#util#Find()*
   Returns the first item in {list} where {expr} (a maktaba Callable which
-  accepts a single argument) returns a truthy value.  Returns |v:none| if no
+  accepts a single argument) returns a truthy value.  Returns |v:null| if no
   item in the list matched.
 
 imp#util#Intersection({list1}, {list2})              *imp#util#Intersection()*

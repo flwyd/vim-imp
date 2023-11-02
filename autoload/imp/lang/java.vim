@@ -18,8 +18,8 @@
 
 let s:logger = maktaba#log#Logger('imp#lang#java')
 let s:fullyQualified = imp#re#Capture([
-      \ imp#re#Group([imp#re#AsciiWord().AtLeastOnce(), imp#re#Literal('.')])
-      \ .AtLeastOnce(),
+      \ imp#re#Group([imp#re#AsciiWord().AtLeastOnce(), imp#re#Literal('.')]
+      \ ).AtLeastOnce(),
       \ imp#re#AsciiWord().AtLeastOnce().Named('symbol')])
 let s:importStatic = imp#re#Sequence([
       \ imp#re#LineStart(),
@@ -43,10 +43,10 @@ let s:staticOrType = imp#re#Or([s:importStatic, s:importType])
 function! imp#lang#java#Pattern(context, style, symbol) abort
   let l:literal = imp#re#Literal(a:symbol).Named('symbol')
   let l:patterns = [
-        \ imp#re#Pattern([s:importType.Replace('symbol', l:literal)])
-        \ .InStyle(a:style),
-        \ imp#re#Pattern([s:importStatic.Replace('symbol', l:literal)])
-        \ .InStyle(a:style)]
+        \ imp#re#Pattern([s:importType.Replace('symbol', l:literal)]
+        \ ).InStyle(a:style),
+        \ imp#re#Pattern([s:importStatic.Replace('symbol', l:literal)]
+        \ ).InStyle(a:style)]
   return {'patterns': l:patterns, 'fileglobs': ['*.java'], 'style': a:style,
         \ 'Parse': function('s:parseImport')}
 endfunction
