@@ -145,10 +145,11 @@ endfunction
 " current buffer matches one of the syntax names in list {synnames}.  Checks the
 " first column if the line contains only whitespace.  Will generally return
 " false if the line has no characters.  {synnames} is the first argument to aid
-" |Partial| or |maktaba#function#WithArgs| applications.
+" |Partial| or |maktaba#function#WithArgs| applications.  Name comparisons are
+" case-insensitive.
 function! imp#util#IsSyntaxLine(synnames, linenum) abort
-  call maktaba#ensure#IsList(a:synnames)
   call maktaba#ensure#IsNumber(a:linenum)
+  let l:names = maktaba#function#Map(imp#util#ToList(a:synnames), 'tolower')
   if empty(a:synnames)
     return 0
   endif
@@ -157,7 +158,7 @@ function! imp#util#IsSyntaxLine(synnames, linenum) abort
     let l:col = 1
   endif
   let l:syntax = synIDattr(synIDtrans(synID(a:linenum, l:col, 1)), 'name')
-  return maktaba#value#IsIn(l:syntax, a:synnames)
+  return maktaba#value#IsIn(tolower(l:syntax), a:synnames)
 endfunction
 
 ""

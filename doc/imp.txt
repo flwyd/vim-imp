@@ -1240,6 +1240,7 @@ imp#util#IsSyntaxLine({synnames}, {linenum})         *imp#util#IsSyntaxLine()*
   Checks the first column if the line contains only whitespace.  Will
   generally return false if the line has no characters.  {synnames} is the
   first argument to aid |Partial| or |maktaba#function#WithArgs| applications.
+  Name comparisons are case-insensitive.
 
 imp#util#CursorSymbol()                              *imp#util#CursorSymbol()*
   Returns the symbol (as determined by |iskeyword|) currently under or next to
