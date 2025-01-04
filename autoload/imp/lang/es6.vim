@@ -192,6 +192,9 @@ function! s:insertSymbol(context, choice) abort
       endif
       return {'inserted': 1, 'success': 1,
             \ 'import': imp#NewImport(a:choice.symbol, l:newline)}
+    else
+      " Don't hang on to multi-line import if it didn't match
+      let l:multistart = 0
     endif
     let l:lastline = l:i
   endfor

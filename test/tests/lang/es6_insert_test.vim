@@ -90,6 +90,39 @@ function s:suite.merge_with_module() abort
   call s:expect(getline(3)).to_equal('import {bar as baz, one} from "wherever";')
 endfunction
 
+function s:suite.multiline_add_two_from_elsewhere() abort
+  let l:existing = [
+        \ "import {Alice} from '@books/wonderland';",
+        \ "import * as asterisk from '@characters/punctuation';",
+        \ "import {Bob, Carol} from '@neighbors/nextdoor';",
+        \ "import {Eve} from '@rsa/examples';",
+        \ "import {",
+        \ "  Eyes,",
+        \ "  Nose,",
+        \ "  Mouth,",
+        \ "} from 'body/face';",
+        \ "import {oil} from 'texas/houston';",
+        \ '',
+        \ "import * as actions from './actions';",
+        \ "import * as names from './names';",
+        \ '',
+        \ "class Person {",
+        \ "  name: string",
+        \ "  age: int",
+        \ "}"]
+  call append(0, l:existing)
+  call s:expect(line('$')).to_equal(19)
+  let l:context = imp#NewContext()
+  let l:hand = 'import {Hand} from "body/arm";'
+  call imp#lang#es6#Insert(l:context, [imp#NewImport('Hand', l:hand)])
+  call s:expect(getline(14)).to_equal('import {Hand} from "body/arm";')
+  call s:expect(line('$')).to_equal(20)
+  let l:elbow = 'import {Elbow} from "body/arm";'
+  call imp#lang#es6#Insert(l:context, [imp#NewImport('Elbow', l:elbow)])
+  call s:expect(getline(14)).to_equal('import {Elbow, Hand} from "body/arm";')
+  call s:expect(line('$')).to_equal(20)
+endfunction
+
 function s:suite.several_multiline() abort
   let l:existing = [
         \ 'import {Alice} from "wonderland";',
