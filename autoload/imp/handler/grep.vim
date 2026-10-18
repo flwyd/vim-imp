@@ -34,7 +34,7 @@ function! imp#handler#grep#IsAvailable(context) abort
     " e.g. 'grep (BSD grep) 2.5.1-FreeBSD' or 'grep (GNU grep) 3.4'
     let s:grepFlavor = substitute(matchstr(l:result.stdout, '\v\(\w+ grep\)'),
           \ '\v\((.*) grep\)', '\1', '')
-    echomsg 'grep flavor is' s:grepFlavor
+    call s:logger.Debug('grep flavor is %s' s:grepFlavor)
   endif
   return 1
 endfunction
