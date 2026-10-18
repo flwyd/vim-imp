@@ -93,6 +93,21 @@
 " <
 
 ""
+" Known regular expression engines which support different regex syntax.
+function! imp#re#Engines() abort
+  return {
+        \ 'ecmascript': 'used by JavaScript/ES6 tools',
+        \ 'pcre': 'used by ag and other tools built a PCRE library',
+        \ 'perl': 'used by ack and other Perl tools',
+        \ 'posix': 'used by grep -e and other POSIX tools, see man 7 regex',
+        \ 'posix_basic': 'used by grep without -e, see man 7 regex',
+        \ 'python': 'used by hg grep and other Python tools',
+        \ 're2': 'used by tools built with an RE2 library',
+        \ 'rust': 'used by ripgrep and other Rust tools',
+        \ 'vim': 'used by vim for buffer searches'}
+endfunction
+
+""
 " Atom is a "base class" for components of regular expressions.  The Atom
 " constructor sets default properties and method references, overwritten and
 " extended by anything in {properties}.  Atoms are immutable, but

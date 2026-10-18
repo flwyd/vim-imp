@@ -118,20 +118,21 @@ call s:plugin.Flag('parent', {'levels': 0})
 
 ""
 " Configuration for the buffer Suggest handler, searching vim buffers of the
-" same file type for an import statement. If the `load` setting is true,
-" unloaded buffers will be loaded before searching.
+" same file type for an import statement using the `vim` regex style. If the
+" `load` setting is true, unloaded buffers will be loaded before searching.
 call s:plugin.Flag('buffer', {'load': 0})
 
 ""
 " Configuration for the grep Suggest handler, searching a directory hierarchy
-" with `grep`. The `command` setting provides the executable path and `args` is
-" a list of arguments prepended to the command line.  Note that any arg which
-" changes the output format may produce invalid Suggest results.  Note that,
-" unlike ripgrep, ag, and ack, by default grep does not exclude any directories
-" like `vendor` or `node_modules`, and results may therefore be slow without
-" adding such directories to the flag.  The grep handler does exclude hidden
-" directories that start with a `.`, which includes many support directories for
-" version control systems, e.g. the `.git` directory.
+" with `grep` using `posix` regex style. The `command` setting provides the
+" executable path and `args` is a list of arguments prepended to the command
+" line.  Note that any arg which changes the output format may produce invalid
+" Suggest results.  Note that, unlike ripgrep, ag, and ack, by default grep
+" does not exclude any directories like `vendor` or `node_modules`, and
+" results may therefore be slow without adding such directories to the flag.
+" The grep handler does exclude hidden directories that start with a `.`,
+" which includes many support directories for version control systems, e.g.
+" the `.git` directory.
 "
 " Example configuration: >
 "   Glaive @plugin(name) grep[command]=/path/to/grep
@@ -140,10 +141,11 @@ call s:plugin.Flag('buffer', {'load': 0})
 call s:plugin.Flag('grep', {'command': 'grep', 'args': []})
 
 ""
-" Configuration for the ripgrep Suggest handler, searching a directory hierarchy
-" with `rg`. The `command` setting provides the executable path and `args` is a
-" list of arguments prepended to the command line.  Note that any arg which
-" changes the output format may produce invalid Suggest results.
+" Configuration for the ripgrep Suggest handler, searching a directory
+" hierarchy with `rg` using the `rust` regex style. The `command` setting
+" provides the executable path and `args` is a list of arguments prepended to
+" the command line.  Note that any arg which changes the output format may
+" produce invalid Suggest results.
 "
 " Example configuration: >
 "   Glaive @plugin(name) ripgrep[command]=/path/to/rg
@@ -153,10 +155,10 @@ call s:plugin.Flag('ripgrep', {'command': 'rg', 'args': []})
 
 ""
 " Configuration for the ag (The Silver Searcher) Suggest handler, searching a
-" directory hierarchy with `ag`. The `command` setting provides the executable
-" path and `args` is a list of arguments prepended to the command line.  Note
-" that any arg which changes the output format may produce invalid Suggest
-" results.
+" directory hierarchy with `ag` using the `pcre` regex style. The `command`
+" setting provides the executable path and `args` is a list of arguments
+" prepended to the command line.  Note that any arg which changes the output
+" format may produce invalid Suggest results.
 "
 " Example configuration: >
 "   Glaive @plugin(name) ag[command]=/path/to/ag
@@ -166,9 +168,10 @@ call s:plugin.Flag('ag', {'command': 'ag', 'args': []})
 
 ""
 " Configuration for the ack Suggest handler, searching a directory hierarchy
-" with `ack`. The `command` setting provides the executable path and `args` is a
-" list of arguments prepended to the commandline.  Note that any arg which
-" changes the output format may produce invalid Suggest results.
+" with `ack` using the `perl` regex style. The `command` setting provides the
+" executable path and `args` is a list of arguments prepended to the
+" commandline.  Note that any arg which changes the output format may produce
+" invalid Suggest results.
 "
 " Example configuration: >
 "   Glaive @plugin(name) ack[command]=/path/to/ack-grep
@@ -177,11 +180,12 @@ call s:plugin.Flag('ag', {'command': 'ag', 'args': []})
 call s:plugin.Flag('ack', {'command': 'ack', 'args': []})
 
 ""
-" Configuration for the gitgrep Suggest handler, searching a git repository with
-" `git grep`. The `command` setting provides the git executable path, the `grep`
-" setting is the name of the subcommand (e.g. a `mygrep` alias), and `args` is
-" a list of command line arguments to include.  Note that any arg which changes
-" the output format may produce invalid Suggest results.
+" Configuration for the gitgrep Suggest handler, searching a git repository
+" with `git grep` using the `posix` regex style. The `command` setting
+" provides the git executable path, the `grep` setting is the name of the
+" subcommand (e.g.  a `mygrep` alias), and `args` is a list of command line
+" arguments to include.  Note that any arg which changes the output format may
+" produce invalid Suggest results.
 "
 " Example configuration: >
 "   Glaive @plugin(name) gitgrep[command]=/path/to/git gitgrep[grep]=mygrep
@@ -190,11 +194,12 @@ call s:plugin.Flag('ack', {'command': 'ack', 'args': []})
 call s:plugin.Flag('gitgrep', {'command': 'git', 'grep': 'grep', 'args': []})
 
 ""
-" Configuration for the hggrep Suggest handler, searching a Mercurial repository
-" with `hg grep`. The `command` setting provides the hg executable path, the
-" `grep` setting is the name of the subcommand (e.g. a `mygrep` alias), and
-" `args` is a list of command line arguments to include.  Note that any arg
-" which changes the output format may produce invalid Suggest results.
+" Configuration for the hggrep Suggest handler, searching a Mercurial
+" repository with `hg grep` using the `python` regex style. The `command`
+" setting provides the hg executable path, the `grep` setting is the name of
+" the subcommand (e.g. a `mygrep` alias), and `args` is a list of command line
+" arguments to include.  Note that any arg which changes the output format may
+" produce invalid Suggest results.
 "
 " Example configuration: >
 "   Glaive @plugin(name) hggrep[command]=/path/to/hg hggrep[grep]=mygrep

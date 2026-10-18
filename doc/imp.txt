@@ -87,6 +87,20 @@ COMMANDS                                                        *imp-commands*
     :ImpHandlers java Suggest
 <
 
+:ImpPatterns [symbol] [style]                                   *:ImpPatterns*
+  Prints the file globs and regular expressions which would be used to find
+  suggestions for [symbol].  [style] is the name of a regex syntax, one of
+  `ecmascript`, `java`, `pcre`, `perl`, `posix`, `posix_basic`, `python`,
+  `re2`, `rust`, or `vim`  The output may help you troubleshoot the search
+  performed by a Suggest handler; see specific help documentation for the
+  style used by a handler.  Multiple symbols may be given.  Example for
+  |imp:ripgrep| which uses the Rust regex syntax:
+>
+    :ImpPattern UserAccount my.qualified.Name rust
+<
+  [symbol] is the word at the cursor (or FOO) if omitted.
+  [style] is posix if omitted.
+
 ==============================================================================
 MAPPINGS                                                        *imp-mappings*
 
@@ -217,20 +231,21 @@ Default: {'levels': 0} `
 
                                                                   *imp:buffer*
 Configuration for the buffer Suggest handler, searching vim buffers of the
-same file type for an import statement. If the `load` setting is true,
-unloaded buffers will be loaded before searching.
+same file type for an import statement using the `vim` regex style. If the
+`load` setting is true, unloaded buffers will be loaded before searching.
 Default: {'load': 0} `
 
                                                                     *imp:grep*
 Configuration for the grep Suggest handler, searching a directory hierarchy
-with `grep`. The `command` setting provides the executable path and `args` is
-a list of arguments prepended to the command line.  Note that any arg which
-changes the output format may produce invalid Suggest results.  Note that,
-unlike ripgrep, ag, and ack, by default grep does not exclude any directories
-like `vendor` or `node_modules`, and results may therefore be slow without
-adding such directories to the flag.  The grep handler does exclude hidden
-directories that start with a `.`, which includes many support directories for
-version control systems, e.g. the `.git` directory.
+with `grep` using `posix` regex style. The `command` setting provides the
+executable path and `args` is a list of arguments prepended to the command
+line.  Note that any arg which changes the output format may produce invalid
+Suggest results.  Note that, unlike ripgrep, ag, and ack, by default grep does
+not exclude any directories like `vendor` or `node_modules`, and results may
+therefore be slow without adding such directories to the flag. The grep
+handler does exclude hidden directories that start with a `.`, which includes
+many support directories for version control systems, e.g. the `.git`
+directory.
 
 Example configuration:
 >
@@ -241,9 +256,10 @@ Default: {'command': 'grep', 'args': []} `
 
                                                                  *imp:ripgrep*
 Configuration for the ripgrep Suggest handler, searching a directory hierarchy
-with `rg`. The `command` setting provides the executable path and `args` is a
-list of arguments prepended to the command line.  Note that any arg which
-changes the output format may produce invalid Suggest results.
+with `rg` using the `rust` regex style. The `command` setting provides the
+executable path and `args` is a list of arguments prepended to the command
+line.  Note that any arg which changes the output format may produce invalid
+Suggest results.
 
 Example configuration:
 >
@@ -254,10 +270,10 @@ Default: {'command': 'rg', 'args': []} `
 
                                                                       *imp:ag*
 Configuration for the ag (The Silver Searcher) Suggest handler, searching a
-directory hierarchy with `ag`. The `command` setting provides the executable
-path and `args` is a list of arguments prepended to the command line.  Note
-that any arg which changes the output format may produce invalid Suggest
-results.
+directory hierarchy with `ag` using the `pcre` regex style. The `command`
+setting provides the executable path and `args` is a list of arguments
+prepended to the command line.  Note that any arg which changes the output
+format may produce invalid Suggest results.
 
 Example configuration:
 >
@@ -268,9 +284,10 @@ Default: {'command': 'ag', 'args': []} `
 
                                                                      *imp:ack*
 Configuration for the ack Suggest handler, searching a directory hierarchy
-with `ack`. The `command` setting provides the executable path and `args` is a
-list of arguments prepended to the commandline.  Note that any arg which
-changes the output format may produce invalid Suggest results.
+with `ack` using the `perl` regex style. The `command` setting provides the
+executable path and `args` is a list of arguments prepended to the
+commandline.  Note that any arg which changes the output format may produce
+invalid Suggest results.
 
 Example configuration:
 >
@@ -281,10 +298,11 @@ Default: {'command': 'ack', 'args': []} `
 
                                                                  *imp:gitgrep*
 Configuration for the gitgrep Suggest handler, searching a git repository with
-`git grep`. The `command` setting provides the git executable path, the `grep`
-setting is the name of the subcommand (e.g. a `mygrep` alias), and `args` is a
-list of command line arguments to include.  Note that any arg which changes
-the output format may produce invalid Suggest results.
+`git grep` using the `posix` regex style. The `command` setting provides the
+git executable path, the `grep` setting is the name of the subcommand (e.g.  a
+`mygrep` alias), and `args` is a list of command line arguments to include.
+Note that any arg which changes the output format may produce invalid Suggest
+results.
 
 Example configuration:
 >
@@ -295,10 +313,11 @@ Default: {'command': 'git', 'grep': 'grep', 'args': []} `
 
                                                                   *imp:hggrep*
 Configuration for the hggrep Suggest handler, searching a Mercurial repository
-with `hg grep`. The `command` setting provides the hg executable path, the
-`grep` setting is the name of the subcommand (e.g. a `mygrep` alias), and
-`args` is a list of command line arguments to include.  Note that any arg
-which changes the output format may produce invalid Suggest results.
+with `hg grep` using the `python` regex style. The `command` setting provides
+the hg executable path, the `grep` setting is the name of the subcommand (e.g.
+a `mygrep` alias), and `args` is a list of command line arguments to include.
+Note that any arg which changes the output format may produce invalid Suggest
+results.
 
 Example configuration:
 >
@@ -1083,14 +1102,21 @@ imp#pattern#GlobToRegex({glob})                    *imp#pattern#GlobToRegex()*
   possible that this function mishandles some unusual glob cases. It does not
   handle some shell patterns like `{foo,bar}` disjunction.
 
-imp#pattern#DebugSymbol({symbol}, [style])         *imp#pattern#DebugSymbol()*
-  Prints file globs and regex pattterns for {symbol} based on the current
+imp#pattern#DebugSymbol([symbol], [style])         *imp#pattern#DebugSymbol()*
+  Prints file globs and regex pattterns for [symbol] based on the current
   filetype.  [style], defaulting to `posix`, determines the regex dialect, see
   |imp.Pattern| for possible styles.  Note that further debugging information,
   including the full command used by a Suggest handler, can be seen from the
   |maktaba.Logger| at debug level:
 >
     call maktaba#log#SetNotificationLevel(maktaba#log#LEVELS.DEBUG)
+<
+  [symbol] defaults to the word under the current cursor, and multiple symbols
+  may be given, printing each.  If the cursor is not on a word, FOO is the
+  default.  To show patterns for a symbol which is also the name of a regex
+  style, a second style or symbol must be given:
+>
+    call imp#pattern#DebugSymbol('re2', 'perl')
 <
 
 imp#polyfill#Flattennew({list}, [maxdepth])        *imp#polyfill#Flattennew()*

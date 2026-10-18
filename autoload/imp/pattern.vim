@@ -226,26 +226,50 @@ function! imp#pattern#GlobToRegex(glob) abort
 endfunction
 
 ""
-" Prints file globs and regex pattterns for {symbol} based on the current
+" Prints file globs and regex pattterns for [symbol] based on the current
 " filetype.  [style], defaulting to `posix`, determines the regex dialect, see
 " @dict(Pattern) for possible styles.  Note that further debugging
 " information, including the full command used by a Suggest handler, can be
 " seen from the |maktaba.Logger| at debug level: >
 "   call maktaba#log#SetNotificationLevel(maktaba#log#LEVELS.DEBUG)
 " <
+" [symbol] defaults to the word under the current cursor, and multiple symbols
+" may be given, printing each.  If the cursor is not on a word, FOO is the
+" default.  To show patterns for a symbol which is also the name of a regex
+" style, a second style or symbol must be given: >
+"   call imp#pattern#DebugSymbol('re2', 'perl')
+" <
 " @public
-function imp#pattern#DebugSymbol(symbol, ...) abort
-  let l:style = a:0 > 0 ? a:1 : 'posix'
-  let l:context = imp#NewContext()
-  let l:pat = imp#pattern#FromPreferred(l:context, l:style, a:symbol)
-  echomsg printf('Pattern debug for %s in style %s', a:symbol, l:style)
-  if empty(l:pat)
-    echomsg 'No patterns found for filetype' l:context.filetype
-    return
+function imp#pattern#DebugSymbol(...) abort
+  let l:engines = imp#re#Engines()
+  if a:0 > 0 && get(l:engines, a:000[-1])
+    let l:style = a:000[-1]
+    let l:symbols = a:000[:-2]
+  else
+    let l:style = 'posix'
+    let l:symbols = a:000
   endif
-  echomsg printf('File globs: %s', join(l:pat.fileglobs, ', '))
-  echomsg printf('%d regex patterns:', len(l:pat.patterns))
-  for l:re in l:pat.patterns
-    echomsg l:re
+  if empty(l:symbols)
+    let l:sym = imp#util#CursorSymbol()
+    let l:symbols = [empty(l:sym) ? 'FOO' : l:sym]
+  endif
+  let l:globs = ''
+  for l:symbol in l:symbols
+    let l:context = imp#NewContext()
+    let l:pat = imp#pattern#FromPreferred(l:context, l:style, l:symbol)
+    echo printf('Patterns for %s in style %s:', l:symbol, l:style)
+    if !empty(l:pat)
+      let l:globs = printf('%d file globs for %s: %s', len(l:pat.fileglobs),
+            \ l:context.filetype, join(l:pat.fileglobs, ', '))
+      echo printf('%d regex patterns:', len(l:pat.patterns))
+      for l:re in l:pat.patterns
+        echo l:re
+      endfor
+    endif
   endfor
+  if empty(l:globs)
+    echo 'No patterns found for filetype' l:context.filetype
+  else
+    echo l:globs
+  endif
 endfunction

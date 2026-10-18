@@ -48,6 +48,21 @@ command -nargs=* -bar ImpFirst call <SID>Import({'max': 1}, [<f-args>])
 " <
 command -nargs=* -bar ImpHandlers call imp#handler#PrintList(<f-args>)
 
+""
+" @usage [] [symbol] [style]
+" Prints the file globs and regular expressions which would be used to find
+" suggestions for [symbol].  [style] is the name of a regex syntax, one of
+" `ecmascript`, `java`, `pcre`, `perl`, `posix`, `posix_basic`, `python`,
+" `re2`, `rust`, or `vim`  The output may help you troubleshoot the search
+" performed by a Suggest handler; see specific help documentation for the
+" style used by a handler.  Multiple symbols may be given.  Example for
+" |imp:ripgrep| which uses the Rust regex syntax: >
+"   :ImpPattern UserAccount my.qualified.Name rust
+" <
+" @default symbol=the word at the cursor (or FOO)
+" @default style=posix
+command -nargs=* ImpPatterns call imp#pattern#DebugSymbol(<f-args>)
+
 function! s:Import(addcontext, symbols) abort
   if empty(a:symbols)
     let l:word = imp#util#CursorSymbol()
