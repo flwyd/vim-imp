@@ -29,6 +29,8 @@ source <sfile>:h/_php_suggest_base.vim
 call PhpSuggestTests(s:suite, 'imp#handler#ack#Suggest')
 source <sfile>:h/_python_suggest_base.vim
 call PythonSuggestTests(s:suite, 'imp#handler#ack#Suggest')
+source <sfile>:h/_rust_suggest_base.vim
+call RustSuggestTests(s:suite, 'imp#handler#ripgrep#Suggest')
 
 function s:suite.before_each() abort
   if !imp#handler#ack#IsAvailable(imp#NewContext())

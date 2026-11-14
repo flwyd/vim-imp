@@ -60,10 +60,10 @@
 "     imp#re#Literal(';')])
 "   " Replace the patterns which map any import with one that just matches
 "   " the symbol we want.
-"   let l:patterns = mapnew([l:staticImport, l:classImport],
+"   let l:patterns = maktaba#function#Map([l:staticImport, l:classImport],
 "     {p -> p.Replace('symbol', l:wantSymbol).InStyle('vim'))
 "   " l:patterns now has two strings which map the two Java import styles with
-"   " proper Vim metacharacters and escaping
+"   " proper Vim metacharacters and escaping.
 " <
 "
 " Python: >

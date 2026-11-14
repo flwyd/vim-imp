@@ -163,24 +163,36 @@ Some of the handlers can work without any language support. If you edit a text
 file and run `:ImpSuggest foo` then the `prompt` Suggest handler will ask you
 for an import statement for `foo` and the `top` Insert handler will put that
 line on the first line of the file. But the plugin is most effective when
-there's an available `lang` plugin for the filetype you're editing. As of early
-October 2023, the supported languages are
+there's an available `lang` plugin for the filetype you're editing. As of
+November 2026, the supported languages are
 
-*   `bzl` (`load()` statements in Bazel BUILD files and Starlark .bzl files)
-*   `es6` (static imports in JavaScript, TypeScript, and .jsx/.tsx; no dynamic
-    `import("…")` or `goog.require()` support; TODO:
-    [assertions](https://github.com/tc39/proposal-import-assertions))
-*   `java` (static and non-static imports in Java)
-*   `kotlin` (Kotlin imports, including aliases)
-*   `php` (`use` statements for PHP imports of classes, functions, and
-    constants; does not support `use trait` or closure variables)
-*   `python` (`import foo` and `from foo import bar` support including aliases)
+* `bzl`
+  * `load()` statements in Bazel BUILD files and Starlark .bzl files
+* `es6`
+  * static imports in JavaScript, TypeScript, and .jsx/.tsx
+  * no dynamic `import("…")` or `goog.require()` support
+  * TODO: [assertions](https://github.com/tc39/proposal-import-assertions)
+* `java`
+  * static and non-static imports in Java
+* `kotlin`
+  * Kotlin imports, including aliases
+* `php`
+  * `use` statements for PHP imports of classes, functions, and constants
+  *  does not support `use trait` or closure variables
+* `python`
+  * `import foo` and `from foo import bar` support including aliases
+* `rust`
+  * nested or flat `use` statements
+  * `Insert` handler adds to an existing group or adds a standalone import,
+    regardless of [rustfmt settings](https://rust-lang.github.io/rustfmt/?search=import)
+  * finding vertically-formatted imports requires a `Suggest` handler with
+    multiline support, e.g. `ripgrep`
 
 I would like to have "compatible languages" be able to import from each other if
 the main language didn't have any matches. For example, we should be able to
-import `MyJavaUtil` from Kotlin even if you're the first person to import it in
-a `.kt` file. I haven't decided exactly how to do this yet, though; I'm
-considering a `jvm` handler.
+import `MyJavaUtil` from a Java file in Kotlin even if you're the first person
+to import it in a `.kt` file. I haven't decided exactly how to do this yet,
+though; I'm considering a `jvm` handler.
 
 ### Add support for your favorite language
 
@@ -194,9 +206,12 @@ are provided to make such regular expressions more readable and reusable; see
 `:help imp-regex`.  The `Import` handler determines where to add the import
 statement in the current buffer; this often reuses regex patterns from the
 `Pattern` handler or may build a basic lexer for the language in question.  See
-[autoload/imp/lang/java.vim] for an example of the reusable regex approach or
-[autoload/impp/lang/python.vim] for an example with a lexer.
-See `:help imp-handlers` for general instructions on how to write a handler.
+[java](./autoload/imp/lang/java.vim) for an example of the reusable regex
+approach or [python](./autoload/imp/lang/python.vim) for an example with a
+lexer.  See `:help imp-handlers` for general instructions on how to write a
+handler.  To troubleshoot code that builds regexes, the `:ImpPatterns foo pcre`
+command will show the unescaped regular expressions in to find the `foo` symbol
+using the `pcre` regex syntax.
 
 If you add support for a language or using a tool that’s publicly available,
 please consider contributing the handler as open source, either in the vim-imp
@@ -209,19 +224,19 @@ Questions about writing handlers are welcome via GitHub issues or email.
 
 ## Feedback and future plans
 
-I've been using this plugin on a daily basis for over a year (mostly with Java
-and Kotlin code) and it feels pretty ergonomic, but I would love more feedback.
+I used this plugin on a daily basis for several years (mostly with Java and
+Kotlin code) and it feels pretty ergonomic, but I would love more feedback.
 Are the defaults sensible? Are there ways the commands could be improved? Are
 there imports the regex patterns fail to find?  Is the documentation clear
 enough?  Please open a GitHub issue if you have feedback about the way things
 work.
 
-The languages supported so far are mostly a subset ones I've needed to use in
-my day job. If you'd like support for your favorite programming language please
+The languages supported so far are mostly a subset ones I've personally used.
+If you'd like support for your favorite programming language please
 open a GitHub issue with examples of how import statements work in that
 language. If you'd like to implement support, see the
 [contributor documentation](CONTRIBUTING.md). Some attractive languages include
-C#, D, Elixir, Go, Groovy, Haskell, Julia, Rust, Sass, Scala, and Swift. I
+C#, D, Elixir, Go, Groovy, Haskell, Julia, Sass, Scala, and Swift. I
 haven't yet addressed languages where symbols aren't named explicitly: it's
 hard to know what symbols `#include` could bring into a C or C++ program,
 though C++ `using` statements could be handled; this problem also applies to

@@ -1,5 +1,6 @@
 :ImpFirst	imp.txt	/*:ImpFirst*
 :ImpHandlers	imp.txt	/*:ImpHandlers*
+:ImpPatterns	imp.txt	/*:ImpPatterns*
 :ImpSuggest	imp.txt	/*:ImpSuggest*
 Imp	imp.txt	/*Imp*
 Lexer.AdvanceBy()	imp.txt	/*Lexer.AdvanceBy()*
@@ -73,12 +74,17 @@ imp#re#Repeated()	imp.txt	/*imp#re#Repeated()*
 imp#re#Sequence()	imp.txt	/*imp#re#Sequence()*
 imp#util#AlwaysFalse()	imp.txt	/*imp#util#AlwaysFalse()*
 imp#util#ArgsList()	imp.txt	/*imp#util#ArgsList()*
+imp#util#Cmp()	imp.txt	/*imp#util#Cmp()*
+imp#util#CompareLists()	imp.txt	/*imp#util#CompareLists()*
 imp#util#CursorSymbol()	imp.txt	/*imp#util#CursorSymbol()*
 imp#util#Find()	imp.txt	/*imp#util#Find()*
 imp#util#FindLines()	imp.txt	/*imp#util#FindLines()*
 imp#util#Intersection()	imp.txt	/*imp#util#Intersection()*
 imp#util#IsCommentLine()	imp.txt	/*imp#util#IsCommentLine()*
+imp#util#IsCommentOrStringLine()	imp.txt	/*imp#util#IsCommentOrStringLine()*
 imp#util#IsSyntaxLine()	imp.txt	/*imp#util#IsSyntaxLine()*
+imp#util#SharedPrefix()	imp.txt	/*imp#util#SharedPrefix()*
+imp#util#SharedSuffix()	imp.txt	/*imp#util#SharedSuffix()*
 imp-about	imp.txt	/*imp-about*
 imp-commands	imp.txt	/*imp-commands*
 imp-config	imp.txt	/*imp-config*

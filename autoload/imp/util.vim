@@ -38,6 +38,36 @@ endfunction
 
 ""
 " @public
+" Compares two values in the natural way, returning 0 if the two are equal
+" according to `==#`, -1 if `a <# b` and 1 if `a ># b`.
+function! imp#util#Cmp(a, b) abort
+  if a:a ==# a:b
+    return 0
+  endif
+  if a:a <# a:b
+    return -1
+  endif
+  return 1
+endfunction
+
+""
+" @public
+" Compares two lists element-wise, using {cmp} as an element comparator which
+" returns less than zero, zero, or greater than zero.  If lists {a} or {b} are
+" a prefix of the other, the shorter list compares less.  {cmp} may be any
+" maktaba callable, including '|imp#util#Cmp|' for natural sorting.
+function! imp#util#CompareLists(cmp, a, b) abort
+  for l:i in range(min([len(a:a), len(a:b)]))
+    let l:c = maktaba#function#Apply(a:cmp, a:a[l:i], a:b[l:i])
+    if l:c != 0
+      return l:c
+    endif
+  endfor
+  return len(a:a) - len(a:b)
+endfunction
+
+""
+" @public
 " Returns the first item in {list} where {expr} (a maktaba Callable which
 " accepts a single argument) returns a truthy value.  Returns |v:null| if no
 " item in the list matched.
@@ -64,6 +94,59 @@ function! imp#util#Intersection(list1, list2) abort
   " https://github.com/google/vim-maktaba/issues/250
   return maktaba#function#Filter(
         \ copy(a:list1), {val -> index(a:list2, val) >= 0})
+endfunction
+
+""
+" @public
+" {a} and {b} must both be either strings or lists.  Returns a string or list
+" (matching the input type) with the common elements at the beginning of both
+" {a} and {b}.
+function! imp#util#SharedPrefix(a, b) abort
+  call maktaba#ensure#TypeMatches(
+        \ maktaba#ensure#TypeMatchesOneOf(a:a, ['', []]),
+        \ maktaba#ensure#TypeMatchesOneOf(a:b, ['', []]))
+  let l:end = 0
+  for l:i in range(min([len(a:a), len(a:b)]))
+    if a:a[l:i] !=# a:b[l:i]
+      break
+    endif
+    let l:end = l:i+1
+  endfor
+  return slice(a:a, 0, l:end)
+endfunction
+
+""
+" @public
+" {a} and {b} must both be either strings or lists.  Returns a string or list
+" (matching the input type) with the common elements at the end of both {a}
+" and {b}.
+function! imp#util#SharedSuffix(a, b) abort
+  call maktaba#ensure#TypeMatches(
+        \ maktaba#ensure#TypeMatchesOneOf(a:a, ['', []]),
+        \ maktaba#ensure#TypeMatchesOneOf(a:b, ['', []]))
+  " string doesn't support negative indexes like l:s[-2] but does support
+  " negatives in range like l:s[-2:]
+  if maktaba#value#IsString(a:a)
+    let l:result = ''
+    for l:i in range(-1, -min([len(a:a), len(a:b)]), -1)
+      let l:x = a:a[l:i:]
+      let l:y = a:b[l:i:]
+      if l:x ==# l:y
+        let l:result = l:x
+      else
+        break
+      endif
+    endfor
+    return l:result
+  endif
+  let l:step = 0
+  for l:i in range(-1, -min([len(a:a), len(a:b)]), -1)
+    if a:a[l:i] !=# a:b[l:i]
+      break
+    endif
+    let l:step += 1
+  endfor
+  return slice(a:a, len(a:a) - l:step)
 endfunction
 
 ""
@@ -97,11 +180,11 @@ endfunction
 " value.  If [IgnoreComments] is a maktaba callable, it is called with the line
 " number of each line before {pat} is checked, and the line is skipped before if
 " it returns true.  As a convenience, [IgnoreComments] can be 1 (default) to use
-" |imp#util#IsCommentLine| as the predicate and 0 to use |imp#util#AlwaysFalse|.
-" If [StopIf] is non-empty, it will be called with the line text for each line,
-" before {pat} is checked.  If [StopIf] returns true, this and all further lines
-" will be ignored.  This allows only examining the top part of a file for
-" imports.
+" |imp#util#IsCommentOrStringLine| as the predicate and 0 to use
+" |imp#util#AlwaysFalse|.  If [StopIf] is non-empty, it will be called with
+" the line text for each line, before {pat} is checked.  If [StopIf] returns
+" true, this and all further lines will be ignored.  This allows only
+" examining the top part of a file for imports.
 function! imp#util#FindLines(pat, ...) abort
   let l:ignoreComment = get(a:, 1, 1)
   if maktaba#value#IsNumber(l:ignoreComment)
@@ -137,6 +220,16 @@ endfunction
 " first non-blank character in the line has comment syntax.
 function! imp#util#IsCommentLine(linenum) abort
   return imp#util#IsSyntaxLine(['comment'], a:linenum)
+endfunction
+
+""
+" @public
+" Returns true if it is likely that line {linenum} of the current buffer is
+" a comment or part of a (multiline) string.  Implementation may change, but
+" currently checks if the the first non-blank character in the line has
+" comment or string syntax.
+function! imp#util#IsCommentOrStringLine(linenum) abort
+  return imp#util#IsSyntaxLine(['comment', 'string'], a:linenum)
 endfunction
 
 ""

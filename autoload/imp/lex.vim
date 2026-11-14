@@ -42,7 +42,7 @@ endfunction
 "   * `text` - The string to be lexed
 "   * `position` - The current 0-based index in the string, measured in
 "     characters with composing chars ignored, see |strchars()|.
-"     If `position >=0` then lexing is done (see @function(Lexer.AtEnd)).
+"     If `position >= length` then lexing is done (see @function(Lexer.AtEnd)).
 "   * `tokens` - List of @dict(Token) produced by @function(Lexer.EmitToken)
 "   * `state` - Name of current lexer state (next method to call)
 " In addition to calling @function(Lexer.EmitToken), state methods may store
@@ -264,7 +264,7 @@ endfunction
 " @dict Lexer
 " Attempts to read an identifier at the current position, returning a
 " @dict(Token) with `type = 'identifier'` if successful and an empty dict
-" otherwise.  By default, this calls
+" otherwise.  By default, this calls the lexer method
 " `self.ReadPatternAs('\v^\k+', 'identifier')`  Language-specific lexers may
 " set a different ReadIdentifier function property.
 function imp#lex#ReadIdentifier() abort dict
@@ -276,9 +276,9 @@ endfunction
 " @dict Lexer
 " Attempts to read an one or more newline characters at the
 " current position, returning a @dict(Token) with `type = 'newline'` if
-" successful and an empty dict otherwise.  By default, this calls
-" `self.ReadPatternAs('\v^[\r\n]+', 'newline')`  Language-specific lexers
-" may set a different ReadNewline function property.
+" successful and an empty dict otherwise.  By default, this calls the lexer
+" method `self.ReadPatternAs('\v^[\r\n]+', 'newline')`  Language-specific
+" lexers may set a different ReadNewline function property.
 function imp#lex#ReadNewline() abort dict
   return self.ReadPatternAs('\v^[\r\n]+', 'newline')
 endfunction

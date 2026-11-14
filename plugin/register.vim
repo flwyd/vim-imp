@@ -106,7 +106,7 @@ call s:registry.SetValidator(function('s:ValidateExtension'))
 "   * `pwd` - Search under the current working directory for suggestions
 "   * `parent` - Search under the parent of the active file for suggestions
 "   * `vcsroot` - Search all files in the active file's version control system
-"     direcotry hierarchy, e.g. a whole git repository
+"     directory hierarchy, e.g. a whole git repository
 "  * `packageroot` - Find a package or build system configuration file in an
 "    ancestor directory and search the hierarchy rooted there for suggestions
 "
@@ -140,18 +140,40 @@ call s:registry.SetValidator(function('s:ValidateExtension'))
 "     with the cursor before the dot.
 "   * `lang` - Insert import statements in alphabetic order.
 "
+" `php` handler provides both of the below
+"   * `prompt` - Suggest by showing `use \SymbolName;` or
+"     `use function \symbol_name;` in an |input()| prompt with the cursor
+"     before the backslash.
+"   * `lang` - Insert use statements in alphabetic order (no nesting).
+"
 " `python` handler provides both of the below
 "   * `prompt` - Suggest by showing `from  import SymbolName` in an |input()|
 "     prompt with the cursor between `from` and `import`, or a special case if
 "     SymbolName contains a dot.
 "   * `lang` - Merge relative imports from the same package, alphabetize others.
 "
+" `rust` handler provides both of the below
+"   * `prompt` - Suggest by showing `use ::SymbolName` in an |input()| prompt
+"     with the cursor before the colons.
+"   * `lang` - Insert use statements near a related module.  Will add members
+"     to an existing group, e.g. inserting `use a::b;` with an existing line
+"     like `use a::{self, x};` results in `use a::{self, b, x};`  However,
+"     Imp does not match arbitrary Rust nesting structures, so
+"     `use a::b::c::d;` will be inserted as a standalone statement rather than
+"     merging into the fully normalized `use a::b::{c::x, y::z};`  Multiline
+"     use statements are matched if the Suggest handler supports them (e.g.
+"     `ripgrep`), but line breaks are removed when merging and inline comments
+"     stop parsing.  Users are encouraged to run `rustfmt` to organize imports
+"     according to project preferences rather than relying on Imp's ordering.
+"
 " The following languages support the `Pattern` handler:
 "   * `bzl`
 "   * `es6`
 "   * `java`
 "   * `kotlin`
+"   * `php`
 "   * `python`
+"   * `rust`
 
 
 " *** Generic Handlers ***
@@ -366,7 +388,7 @@ call s:registry.AddExtension({
       \ 'Pattern': 'imp#lang#php#Pattern'})
 call s:registry.AddExtension({
       \ 'name': 'lang',
-      \ 'description': 'Import PHP statement',
+      \ 'description': 'Alphabetize PHP use statements',
       \ 'filetypes': 'php',
       \ 'Insert': 'imp#lang#php#Insert',
       \ 'Pattern': 'imp#lang#php#Pattern'})
@@ -395,3 +417,23 @@ call s:registry.AddExtension({
       \ 'description': 'Prompt with a partial Python import statement',
       \ 'filetypes': 'python',
       \ 'Suggest': 'imp#lang#python#Suggest'})
+
+" Rust
+call s:registry.AddExtension({
+      \ 'name': 'rust',
+      \ 'description': 'Rust language use statements',
+      \ 'filetypes': 'rust',
+      \ 'Insert': 'imp#lang#rust#Insert',
+      \ 'Suggest': 'imp#lang#rust#Suggest',
+      \ 'Pattern': 'imp#lang#rust#Pattern'})
+call s:registry.AddExtension({
+      \ 'name': 'lang',
+      \ 'description': 'Insert Rust use identifiers sensibly',
+      \ 'filetypes': 'rust',
+      \ 'Insert': 'imp#lang#rust#Insert',
+      \ 'Pattern': 'imp#lang#rust#Pattern'})
+call s:registry.AddExtension({
+      \ 'name': 'prompt',
+      \ 'description': 'Prompt with a partial Rust use statement',
+      \ 'filetypes': 'rust',
+      \ 'Suggest': 'imp#lang#rust#Suggest'})

@@ -31,6 +31,9 @@ call PhpSuggestTests(s:suite, 'imp#handler#ag#Suggest')
 call PhpMultiLineTests(s:suite, 'imp#handler#ag#Suggest')
 source <sfile>:h/_python_suggest_base.vim
 call PythonSuggestTests(s:suite, 'imp#handler#ag#Suggest')
+source <sfile>:h/_rust_suggest_base.vim
+call RustSuggestTests(s:suite, 'imp#handler#ripgrep#Suggest')
+call RustMultiLineTests(s:suite, 'imp#handler#ripgrep#Suggest')
 
 function s:suite.before_each() abort
   if !imp#handler#ag#IsAvailable(imp#NewContext())

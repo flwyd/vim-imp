@@ -13,6 +13,7 @@
 " limitations under the License.
 
 let s:suite = themis#suite('imp#util')
+let s:expect = themis#helper('expect')
 " TODO add tests for other imp#util functions
 
 function s:suite.AlwaysFalse() abort
@@ -21,6 +22,37 @@ function s:suite.AlwaysFalse() abort
   call assert_false(imp#util#AlwaysFalse(1), 'true arg')
   call assert_false(imp#util#AlwaysFalse([]), 'empty arg')
   call assert_false(imp#util#AlwaysFalse('x', 'y'), 'multiple args')
+endfunction
+
+function s:suite.CompareLists() abort
+  call s:expect(imp#util#CompareLists('imp#util#Cmp',
+        \ ['apple', 'cucumber', 'durian', 'banana'],
+        \ ['apple', 'cucumber', 'durian', 'banana'])).to_equal(0)
+  call s:expect(imp#util#CompareLists('imp#util#Cmp',
+        \ ['apple', 'cucumber', 'durian', 'banana'],
+        \ ['apple', 'durian', 'cucumber', 'banana'])).to_be_less_than(0)
+  call s:expect(imp#util#CompareLists('imp#util#Cmp',
+        \ ['apple', 'durian', 'cucumber', 'banana'],
+        \ ['apple', 'cucumber', 'durian', 'banana'])).to_be_greater_than(0)
+  call s:expect(imp#util#CompareLists('imp#util#Cmp',
+        \ ['apple', 'banana', 'cucumber', 'durian'],
+        \ ['apple', 'banana', 'cucumber'])).to_be_greater_than(0)
+  let l:ByLength = {a, b -> len(a) - len(b)}
+  call s:expect(imp#util#CompareLists(l:ByLength,
+        \ ['durian', 'banana', 'apple', 'cucumber'],
+        \ ['banana', 'durian', 'apple', 'cucumber'])).to_equal(0)
+  call s:expect(imp#util#CompareLists(l:ByLength,
+        \ ['cucumber', 'apple', 'banana', 'durian'],
+        \ ['durian', 'apple', 'banana', 'cucumber'])).to_be_greater_than(0)
+  call s:expect(imp#util#CompareLists(l:ByLength,
+        \ ['banana', 'cucumber', 'durian'],
+        \ ['apple juice', 'cucumber', 'durian'])).to_be_less_than(0)
+  call s:expect(imp#util#CompareLists(l:ByLength,
+        \ ['cucumber', 'apple', 'banana', 'durian'],
+        \ ['durian', 'apple', 'banana', 'cucumber'])).to_be_greater_than(0)
+  call s:expect(imp#util#CompareLists(l:ByLength,
+        \ ['durian', 'banana', 'apple', 'cucumber'],
+        \ ['banana', 'durian', 'apple', 'cucumber', 'eggplant'])).to_be_less_than(0)
 endfunction
 
 function s:suite.Intersection() abort
@@ -58,6 +90,45 @@ function s:suite.Intersection() abort
         \ "don't modify first arg")
   call assert_equal(['z', 'y', 'x', 'o', 'n', 'm'], l:b,
         \ "don't modify second arg")
+endfunction
+
+function s:suite.SharedPrefix() abort
+  call assert_equal('', imp#util#SharedPrefix('foo', ''), 'empty string')
+  call assert_equal('', imp#util#SharedPrefix('foo', 'bar'), 'no shared prefix string')
+  call assert_equal('foo', imp#util#SharedPrefix('food', 'foo'), 'full prefix string')
+  call assert_equal('foo', imp#util#SharedPrefix('food', 'footloose'), 'shared prefix string')
+  call assert_equal('food', imp#util#SharedPrefix('food', 'food'), 'equal string')
+  call assert_equal('F', imp#util#SharedPrefix('Foo', 'FOO'), 'case sensitive string')
+  call assert_equal([], imp#util#SharedPrefix([], ['foo']), 'empty list')
+  call assert_equal([], imp#util#SharedPrefix(['foo'], ['bar']), 'no shared prefix list')
+  call assert_equal(['foo'], imp#util#SharedPrefix(['foo'], ['foo', 'bar']), 'full prefix list')
+  call assert_equal(['foo'], imp#util#SharedPrefix(['foo', 'bar'], ['foo']), 'full prefix list')
+  call assert_equal([54, 46], imp#util#SharedPrefix([54, 46, 42], [54, 46, 65]), 'shared prefix numbers list')
+  call assert_equal(['foo', 'BAR'], imp#util#SharedPrefix(['foo', 'BAR', 'baz'], ['foo', 'BAR', 'BAZ']), 'case sensitive list')
+endfunction
+
+function s:suite.SharedSuffix() abort
+  call assert_equal('', imp#util#SharedSuffix('foo', ''), 'empty string')
+  call assert_equal('', imp#util#SharedSuffix('', 'foo'), 'empty string')
+  call assert_equal('', imp#util#SharedSuffix('food', 'foo'), 'different ending strings')
+  call assert_equal('foo', imp#util#SharedSuffix('foo', 'foo'), 'equal string')
+  call assert_equal('oon', imp#util#SharedSuffix('cocoon', 'spoon'), 'shared string')
+  call assert_equal('on', imp#util#SharedSuffix('cocoon', 'SPOon'), 'shared string with case')
+  call assert_equal('', imp#util#SharedSuffix('cocoon', 'SPOON'), 'case sensitive string')
+  call assert_equal([], imp#util#SharedSuffix(['foo'], []), 'empty list')
+  call assert_equal([], imp#util#SharedSuffix([], ['foo']), 'empty list')
+  call assert_equal([], imp#util#SharedSuffix([3, 2, 1, 0], [3, 2, 1]), 'different ending lists')
+  call assert_equal(['apple'], imp#util#SharedSuffix(['apple'], ['apple']), 'equal list')
+  call assert_equal(['banana', 'cherry'], imp#util#SharedSuffix(['banana', 'cherry'], ['banana', 'cherry']), 'equal list')
+  call assert_equal(['banana', 'cherry', 'durian'], imp#util#SharedSuffix(
+        \ ['apple', 'banana', 'cherry', 'durian'],
+        \ ['apricot', 'banana', 'cherry', 'durian']), 'shared list')
+  call assert_equal(['durian'], imp#util#SharedSuffix(
+        \ ['apple', 'banana', 'cherry', 'durian'],
+        \ ['apple', 'banana', 'CHERRY', 'durian']), 'shared list with case')
+  call assert_equal([], imp#util#SharedSuffix(
+        \ ['apple', 'banana', 'cherry', 'DURIAN'],
+        \ ['apple', 'banana', 'cherry', 'durian']), 'empty list with case')
 endfunction
 
 " TODO test the other functions

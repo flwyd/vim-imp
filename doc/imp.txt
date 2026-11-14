@@ -562,7 +562,7 @@ LOCATION HANDLERS
   * `pwd` - Search under the current working directory for suggestions
   * `parent` - Search under the parent of the active file for suggestions
   * `vcsroot` - Search all files in the active file's version control system
-    direcotry hierarchy, e.g. a whole git repository
+    directory hierarchy, e.g. a whole git repository
   * `packageroot` - Find a package or build system configuration file in an
     ancestor directory and search the hierarchy rooted there for suggestions
 
@@ -596,18 +596,40 @@ generic handlers to match a language's imports.
     with the cursor before the dot.
   * `lang` - Insert import statements in alphabetic order.
 
+`php` handler provides both of the below
+  * `prompt` - Suggest by showing `use \SymbolName;` or `use function
+    \symbol_name;` in an |input()| prompt with the cursor before the
+    backslash.
+  * `lang` - Insert use statements in alphabetic order (no nesting).
+
 `python` handler provides both of the below
   * `prompt` - Suggest by showing `from  import SymbolName` in an |input()|
     prompt with the cursor between `from` and `import`, or a special case if
     SymbolName contains a dot.
   * `lang` - Merge relative imports from the same package, alphabetize others.
 
+`rust` handler provides both of the below
+  * `prompt` - Suggest by showing `use ::SymbolName` in an |input()| prompt
+    with the cursor before the colons.
+  * `lang` - Insert use statements near a related module.  Will add members to
+    an existing group, e.g. inserting `use a::b;` with an existing line like
+    `use a::{self, x};` results in `use a::{self, b, x};`  However, Imp does
+    not match arbitrary Rust nesting structures, so `use a::b::c::d;` will be
+    inserted as a standalone statement rather than merging into the fully
+    normalized `use a::b::{c::x, y::z};`  Multiline use statements are matched
+    if the Suggest handler supports them (e.g. `ripgrep`), but line breaks are
+    removed when merging and inline comments stop parsing.  Users are
+    encouraged to run `rustfmt` to organize imports according to project
+    preferences rather than relying on Imp's ordering.
+
 The following languages support the `Pattern` handler:
   * `bzl`
   * `es6`
   * `java`
   * `kotlin`
+  * `php`
   * `python`
+  * `rust`
 
 ==============================================================================
 REGISTERING HANDLERS                                   *imp-handlers-register*
@@ -715,10 +737,10 @@ Java:
     imp#re#Literal(';')])
   " Replace the patterns which map any import with one that just matches
   " the symbol we want.
-  let l:patterns = mapnew([l:staticImport, l:classImport],
+  let l:patterns = maktaba#function#Map([l:staticImport, l:classImport],
     {p -> p.Replace('symbol', l:wantSymbol).InStyle('vim'))
   " l:patterns now has two strings which map the two Java import styles with
-  " proper Vim metacharacters and escaping
+  " proper Vim metacharacters and escaping.
 <
 
 Python:
@@ -786,8 +808,8 @@ through the text.  A Lexer is stateful and only valid for one string.  It has
 the following keys:
   * `text` - The string to be lexed
   * `position` - The current 0-based index in the string, measured in
-    characters with composing chars ignored, see |strchars()|. If `position
-    >=0` then lexing is done (see |Lexer.AtEnd()|).
+    characters with composing chars ignored, see |strchars()|. If `position >=
+    length` then lexing is done (see |Lexer.AtEnd()|).
   * `tokens` - List of |imp.Token| produced by |Lexer.EmitToken()|
   * `state` - Name of current lexer state (next method to call)
 In addition to calling |Lexer.EmitToken()|, state methods may store data as
@@ -849,16 +871,16 @@ Lexer.ReadPatternAs({pattern}, {type})                 *Lexer.ReadPatternAs()*
 Lexer.ReadIdentifier()                                *Lexer.ReadIdentifier()*
   Attempts to read an identifier at the current position, returning a
   |imp.Token| with `type = 'identifier'` if successful and an empty dict
-  otherwise.  By default, this calls `self.ReadPatternAs('\v^\k+',
-  'identifier')`  Language-specific lexers may set a different ReadIdentifier
-  function property.
+  otherwise.  By default, this calls the lexer method
+  `self.ReadPatternAs('\v^\k+', 'identifier')`  Language-specific lexers may
+  set a different ReadIdentifier function property.
 
 Lexer.ReadNewline()                                      *Lexer.ReadNewline()*
   Attempts to read an one or more newline characters at the current position,
   returning a |imp.Token| with `type = 'newline'` if successful and an empty
-  dict otherwise.  By default, this calls `self.ReadPatternAs('\v^[\r\n]+',
-  'newline')`  Language-specific lexers may set a different ReadNewline
-  function property.
+  dict otherwise.  By default, this calls the lexer method
+  `self.ReadPatternAs('\v^[\r\n]+', 'newline')`  Language-specific lexers may
+  set a different ReadNewline function property.
 
 Lexer.ReadWhitespace()                                *Lexer.ReadWhitespace()*
   Attempts to read an one or more non-newline whitespace characters at the
@@ -1224,6 +1246,16 @@ imp#re#Repeated({atom}, {min}, {max})                      *imp#re#Repeated()*
 imp#util#AlwaysFalse()                                *imp#util#AlwaysFalse()*
   Variadic function which always returns 0.
 
+imp#util#Cmp({a}, {b})                                        *imp#util#Cmp()*
+  Compares two values in the natural way, returning 0 if the two are equal
+  according to `==#`, -1 if `a <# b` and 1 if `a ># b`.
+
+imp#util#CompareLists({cmp}, {a}, {b})               *imp#util#CompareLists()*
+  Compares two lists element-wise, using {cmp} as an element comparator which
+  returns less than zero, zero, or greater than zero.  If lists {a} or {b} are
+  a prefix of the other, the shorter list compares less.  {cmp} may be any
+  maktaba callable, including '|imp#util#Cmp|' for natural sorting.
+
 imp#util#Find({list}, {expr})                                *imp#util#Find()*
   Returns the first item in {list} where {expr} (a maktaba Callable which
   accepts a single argument) returns a truthy value.  Returns |v:null| if no
@@ -1233,6 +1265,16 @@ imp#util#Intersection({list1}, {list2})              *imp#util#Intersection()*
   Returns a new list of items in {list1} which are also present in {list2}.
   This uses an O(n^2) algorithm because dicts use string keys which would
   conflate equality for some items.
+
+imp#util#SharedPrefix({a}, {b})                      *imp#util#SharedPrefix()*
+  {a} and {b} must both be either strings or lists.  Returns a string or list
+  (matching the input type) with the common elements at the beginning of both
+  {a} and {b}.
+
+imp#util#SharedSuffix({a}, {b})                      *imp#util#SharedSuffix()*
+  {a} and {b} must both be either strings or lists.  Returns a string or list
+  (matching the input type) with the common elements at the end of both {a}
+  and {b}.
 
 imp#util#ArgsList()                                      *imp#util#ArgsList()*
   Returns a list of values by concatenating argument lists.  If any argument
@@ -1249,16 +1291,22 @@ imp#util#FindLines({pat}, [IgnoreComments], [StopIf])   *imp#util#FindLines()*
   returns a truthy value.  If [IgnoreComments] is a maktaba callable, it is
   called with the line number of each line before {pat} is checked, and the
   line is skipped before if it returns true.  As a convenience,
-  [IgnoreComments] can be 1 (default) to use |imp#util#IsCommentLine| as the
-  predicate and 0 to use |imp#util#AlwaysFalse|. If [StopIf] is non-empty, it
-  will be called with the line text for each line, before {pat} is checked.
-  If [StopIf] returns true, this and all further lines will be ignored.  This
-  allows only examining the top part of a file for imports.
+  [IgnoreComments] can be 1 (default) to use |imp#util#IsCommentOrStringLine|
+  as the predicate and 0 to use |imp#util#AlwaysFalse|.  If [StopIf] is
+  non-empty, it will be called with the line text for each line, before {pat}
+  is checked.  If [StopIf] returns true, this and all further lines will be
+  ignored.  This allows only examining the top part of a file for imports.
 
 imp#util#IsCommentLine({linenum})                   *imp#util#IsCommentLine()*
   Returns true if it is likely that line {linenum} of the current buffer is a
   comment.  Implementation may change, but currently checks if the the first
   non-blank character in the line has comment syntax.
+
+imp#util#IsCommentOrStringLine({linenum})   *imp#util#IsCommentOrStringLine()*
+  Returns true if it is likely that line {linenum} of the current buffer is a
+  comment or part of a (multiline) string.  Implementation may change, but
+  currently checks if the the first non-blank character in the line has
+  comment or string syntax.
 
 imp#util#IsSyntaxLine({synnames}, {linenum})         *imp#util#IsSyntaxLine()*
   Returns true if the first non-blank character of line number {linenum} in
